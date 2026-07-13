@@ -113,7 +113,9 @@ th{color:var(--sub); font-weight:600;}
 .calgrid{display:grid; grid-template-columns:repeat(7,1fr); gap:4px;}
 .calgrid .wd{text-align:center; font-size:10.5px; color:var(--sub); padding:2px 0;}
 .cell{aspect-ratio:1; border-radius:10px; border:1.5px solid var(--line); background:var(--card);
-  display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; font-size:13px; position:relative;}
+  display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; font-size:13px; position:relative; padding-bottom:10px;}
+.cell>div:first-child{line-height:1.2;}
+.cell .pg{margin-top:-1px;}
 .cell.blank{border:none; background:transparent; cursor:default;}
 .cell.work{background:var(--ok-soft); border-color:var(--ok);}
 .cell.rest{background:var(--blue-soft); border-color:var(--blue);}
@@ -217,7 +219,7 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <div class="small" style="margin-top:8px" id="calSummary"></div>
     <div class="bar"><div id="monthBar" style="width:0%; background:var(--blue)"></div></div>
     <div class="small">月間目標 <input type="number" id="mGoal" style="width:70px; padding:4px 6px; margin:0 4px; display:inline-block;" onchange="setMGoal()"> P（1作=本編約70P）</div>
-    <div class="small" style="margin-top:4px">🟩 制作した日　🟦 休日/休養宣言　⬜ 記録なし　▂ マス下のバー=その日のルーティン達成度（9項目中）　※タップでその日を編集（さかのぼり記録OK）</div>
+    <div class="small" style="margin-top:4px">🟩 制作した日　🟦 休日/休養宣言　⬜ 記録なし　▂ バー=ルーティン達成度: <span style="color:#cf5045">〜33%</span>・<span style="color:#e0a52d">〜66%</span>・<span style="color:#7cb342">67%〜</span>・<span style="color:#1e7d36">100%</span>　※タップでその日を編集（さかのぼり記録OK）</div>
   </div>
   <div class="card" id="dayEditor" style="display:none">
     <h2 id="editTitle">—</h2>
@@ -244,7 +246,7 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <h2 id="todoTitle">TODO</h2>
     <div style="display:flex; gap:8px; align-items:center;">
       <input type="text" id="todoInput" placeholder="タスクを追加（Enterで確定）" style="margin-top:0">
-      <button class="btn" style="margin-top:0" onclick="addTodo()">追加</button>
+      <button class="btn" style="margin-top:0; white-space:nowrap; flex:none" onclick="addTodo()">追加</button>
     </div>
     <div id="todoOpen" style="margin-top:10px"></div>
     <div class="small" id="todoDoneTitle" style="margin-top:14px"></div>
@@ -387,9 +389,9 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
 <div class="tabs">
   <div class="tab on" data-page="today" onclick="showPage('today')"><span class="ic">☀</span>今日</div>
   <div class="tab" data-page="cal" onclick="showPage('cal')"><span class="ic">📅</span>カレンダー</div>
-  <div class="tab" data-page="todo" onclick="showPage('todo')"><span class="ic">☑</span>TODO</div>
   <div class="tab" data-page="week" onclick="showPage('week')"><span class="ic">▦</span>週</div>
   <div class="tab" data-page="stats" onclick="showPage('stats')"><span class="ic">📈</span>統計</div>
+  <div class="tab" data-page="todo" onclick="showPage('todo')"><span class="ic">☑</span>TODO</div>
   <div class="tab" data-page="rules" onclick="showPage('rules')"><span class="ic">✦</span>原則</div>
 </div>
 <div class="toast" id="toast"></div>
@@ -435,7 +437,7 @@ async function pushNow(){
   const body=JSON.stringify(payload());
   const cmp=JSON.stringify([DB.days,DB.weeks,payload().st]);
   if(cmp===lastPushed) return;
-  try{ const r=await fetch(url,{method:'PUT',body});
+  try{ const r=await fetch(url,{method:'PATCH',body});
     if(r.ok){ lastPushed=cmp; setDot('on','同期中'); } else setDot('err','エラー');
   }catch(e){ setDot('err','オフライン'); }
 }
@@ -666,7 +668,8 @@ function renderCal(){
     if(rec && k<=tk){
       const done=ITEMS.filter(it=>rec.checks&&rec.checks[it.id]).length;
       const pct=Math.round(done/ITEMS.length*100);
-      rbar='<div class="rbar" title="ルーティン '+done+'/'+ITEMS.length+'"><div style="width:'+pct+'%"></div></div>';
+      const bc=pct>=100?'#1e7d36':pct>=67?'#7cb342':pct>=34?'#e0a52d':'#cf5045';
+      rbar='<div class="rbar" title="ルーティン '+done+'/'+ITEMS.length+'"><div style="width:'+pct+'%; background:'+bc+'"></div></div>';
     }
     e.innerHTML='<div>'+dd+'</div>'+(rec&&rec.pages?'<div class="pg">'+rec.pages+'P</div>':'')+
       (rec&&rec.memo?'<div class="mk">✎</div>':'')+rbar;
