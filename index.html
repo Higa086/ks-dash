@@ -145,9 +145,9 @@ th{color:var(--sub); font-weight:600;}
 .statgrid{display:grid; grid-template-columns:1fr 1fr; gap:8px; text-align:center;}
 .statgrid .card2{background:var(--bg); border-radius:12px; padding:10px 6px; border:1px solid var(--line);}
 /* todo */
-.titem{display:flex; align-items:center; gap:10px; padding:9px 2px; border-bottom:1px solid var(--line); cursor:pointer; user-select:none;}
+.titem{display:flex; align-items:center; gap:9px; padding:7px 2px; border-bottom:1px solid var(--line); cursor:pointer; user-select:none; font-size:13px;}
 .titem:last-child{border-bottom:none;}
-.tbox{width:22px; height:22px; border-radius:7px; border:2px solid var(--dim); flex:none; display:flex; align-items:center; justify-content:center; font-size:13px; color:#fff;}
+.tbox{width:20px; height:20px; border-radius:6px; border:2px solid var(--dim); flex:none; display:flex; align-items:center; justify-content:center; font-size:13px; color:#fff;}
 .titem.done .tbox{background:var(--ok); border-color:var(--ok);}
 .titem .tx{flex:1;}
 .titem.done .tx{color:var(--sub); text-decoration:line-through; text-decoration-color:var(--dim);}
@@ -172,8 +172,9 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
   <div class="victory" id="victoryBox"></div>
   <div class="principle" id="principleBox"></div>
   <div id="reopenBanner"></div>
+  <div class="card" id="restCard" style="display:none"></div>
   <div class="card" id="checkCard">
-    <h2>今日のチェック</h2>
+    <h2 id="checkTitle">今日のチェック</h2>
     <div id="checkList"></div>
     <div class="counter" id="pageCounter">
       <button class="cbtn" onclick="chgPages(-1)">−</button>
@@ -190,7 +191,6 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <div class="small" style="margin-top:6px">今日のメモ</div>
     <textarea id="todayMemo" rows="2" placeholder="一言でOK（何を作った/どうだった）" onchange="saveTodayMemo()"></textarea>
   </div>
-  <div class="card" id="restCard" style="display:none"></div>
   <div class="card">
     <h2>今日の体調 (1-5)</h2>
     <div class="taicho" id="dayTaicho"></div>
@@ -219,7 +219,7 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <div class="small" style="margin-top:8px" id="calSummary"></div>
     <div class="bar"><div id="monthBar" style="width:0%; background:var(--blue)"></div></div>
     <div class="small">月間目標 <input type="number" id="mGoal" style="width:70px; padding:4px 6px; margin:0 4px; display:inline-block;" onchange="setMGoal()"> P（1作=本編約70P）</div>
-    <div class="small" style="margin-top:4px">🟩 制作した日　🟦 休日/休養宣言　⬜ 記録なし　▂ バー=ルーティン達成度: <span style="color:#cf5045">〜33%</span>・<span style="color:#e0a52d">〜66%</span>・<span style="color:#7cb342">67%〜</span>・<span style="color:#1e7d36">100%</span>　※タップでその日を編集（さかのぼり記録OK）</div>
+    <div class="small" style="margin-top:4px">🟩 制作した日　🟦 休日/休養宣言　⬜ 記録なし　▂ バー=ルーティン達成度: <span style="color:#cf5045">〜33%</span>・<span style="color:#e0a52d">〜66%</span>・<span style="color:#7cb342">67%〜</span>・<span style="color:#7c3aed; font-weight:700">★100%</span>　※タップでその日を編集（さかのぼり記録OK）</div>
   </div>
   <div class="card" id="dayEditor" style="display:none">
     <h2 id="editTitle">—</h2>
@@ -271,7 +271,7 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     </div>
   </div>
   <div class="card">
-    <h2>習慣の達成率（直近30日）<span class="small">宣言した休み/休養日は分母から除外</span></h2>
+    <h2>習慣の達成率（直近30日）<span class="small">休み宣言日は未実施でも減点なし・実施分は加点</span></h2>
     <div id="statRows"></div>
   </div>
   <div class="card">
@@ -528,20 +528,19 @@ const ITEMS=[
  {id:'dokusho',label:'読書 15分', hint:'作品の種', short:'読書'},
  {id:'gym',   label:'ジム / ラン', hint:'25〜50分。12月 NAHAマラソン', short:'運動'},
  {id:'walk',  label:'7000歩', hint:'散歩はアイデア出しを兼ねる', short:'7000歩'},
- {id:'wip',   label:'WIPを1枚ポスト', hint:'WIP=制作途中の絵。14:00に投稿だけ。TLは見ない', short:'WIP'},
- {id:'diary', label:'日記', hint:'19:45', short:'日記'},
+ {id:'wip',   label:'WIPを1枚ポスト', hint:'WIP=制作途中の絵。13:00に投稿だけ。TLは見ない', short:'WIP'},
+ {id:'diary', label:'日記', hint:'18:45頃', short:'日記'},
 ];
 const CUT={ normal:[], short:[], half:['riebe','shuwa','eigo','dokusho','gym'], off:[], sick:[] };
 const TL_NORMAL=[
  ['8:00-9:00','起床・朝ルーチン（通知は開かない・スマホ別室へ）',8,9],
  ['9:00-12:00','漫画ゴールデンタイム 3h（25分+5分で回す）',9,12],
  ['12:00-13:00','ジム（ラン25〜50分・妻と行く日は1.5h）',12,13],
- ['13:00-14:00','リベシティ 1h',13,14],
- ['14:00-15:00','昼食+通知・SNSまとめて消化（スマホ解禁・WIPポスト）',14,15],
+ ['13:00-14:00','昼食+通知・SNSまとめて消化（スマホ解禁・WIPポスト）',13,14],
+ ['14:00-15:00','リベシティ 1h',14,15],
  ['15:00-18:00','漫画 第2ブロック 2.5h（乗らない日は作業系に切替）',15,18],
- ['18:00-19:00','夕食など',18,19],
- ['19:00-19:45','ミニ座学（手話15+英語15+読書15）',19,19.75],
- ['19:45-20:00','日記',19.75,20],
+ ['18:00-19:00','ミニ座学（手話15+英語15+読書15）+日記',18,19],
+ ['19:00-20:00','夕食など',19,20],
  ['20:00-24:00','完全自由（罪悪感なしで遊ぶ）',20,24],
 ];
 const PRINCIPLES=[
@@ -585,15 +584,17 @@ function renderToday(){
   banner.innerHTML=(yesterdayZero && d.checks.manga)?
     '<div class="card" style="background:var(--ok-soft); border-color:var(--ok)"><b>再開！</b> 昨日のゼロは帳消し。これが一番えらい。</div>':'';
   const rest=isRest(d.mode);
-  document.getElementById('checkCard').style.display=rest?'none':'block';
+  document.getElementById('checkCard').style.display='block';
+  document.getElementById('checkTitle').textContent=rest?'今日のチェック（任意・できた分だけ○）':'今日のチェック';
   document.getElementById('tlCard').style.display=(d.mode==='normal'&&!zaiseki)?'block':'none';
   const rc=document.getElementById('restCard');
   rc.style.display=rest?'block':'none';
   if(rest){
     rc.innerHTML='<div class="restmsg"><span class="big">'+(d.mode==='off'?'🌿':'🛏')+'</span>'+
       (d.mode==='off'?'今日は休日。完全オフでいい。<br>楽しんだ分だけ勝ち。':'今日は回復が仕事。<br>寝ることも仕事のうち。')+
-      '<div class="small" style="margin-top:10px">気が向いたら日記と散歩だけ、どうぞ。</div></div>';
-  } else {
+      '<div class="small" style="margin-top:10px">できた分だけ下でチェック。ゼロでも満点の日。</div></div>';
+  }
+  {
     const list=document.getElementById('checkList'); list.innerHTML='';
     ITEMS.forEach(it=>{
       const cut=CUT[d.mode].includes(it.id);
@@ -668,7 +669,7 @@ function renderCal(){
     if(rec && k<=tk){
       const done=ITEMS.filter(it=>rec.checks&&rec.checks[it.id]).length;
       const pct=Math.round(done/ITEMS.length*100);
-      const bc=pct>=100?'#1e7d36':pct>=67?'#7cb342':pct>=34?'#e0a52d':'#cf5045';
+      const bc=pct>=100?'#7c3aed':pct>=67?'#7cb342':pct>=34?'#e0a52d':'#cf5045';
       rbar='<div class="rbar" title="ルーティン '+done+'/'+ITEMS.length+'"><div style="width:'+pct+'%; background:'+bc+'"></div></div>';
     }
     e.innerHTML='<div>'+dd+'</div>'+(rec&&rec.pages?'<div class="pg">'+rec.pages+'P</div>':'')+
@@ -805,9 +806,10 @@ function renderStats(){
       const dt=new Date(); dt.setDate(dt.getDate()-i);
       const k=todayKey(dt); const r=DB.days[k];
       const rest=r&&isRest(r.mode);
-      if(rest) continue;
+      const did=r&&r.checks&&r.checks[it.id];
+      if(rest && !did) continue;
       den30++;
-      if(r&&r.checks&&r.checks[it.id]) done30++;
+      if(did) done30++;
     }
     keys.forEach(k=>{ const r=DB.days[k];
       if(r&&r.checks&&r.checks[it.id]){ total++; if(k.slice(0,7)===ym) month++; } });
