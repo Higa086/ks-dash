@@ -372,7 +372,8 @@ function load(){
 function persist(){ localStorage.setItem(KEY, JSON.stringify(DB)); }
 function save(){ persist(); schedulePush(); }
 function todayKey(d=new Date()){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
-function day(k=todayKey()){ if(!DB.days[k]) DB.days[k]={mode:'normal',checks:{},pages:0,kotowari:0,memo:'',u:0}; return DB.days[k]; }
+function day(k=todayKey()){ if(!DB.days[k]) DB.days[k]={mode:'normal',checks:{},pages:0,kotowari:0,memo:'',u:0};
+  const r=DB.days[k]; r.checks=r.checks||{}; r.mode=r.mode||'normal'; return r; }
 function touch(rec){ rec.u=Date.now(); }
 function weekKey(d=new Date()){ const x=new Date(d.getFullYear(),d.getMonth(),d.getDate()); const dow=(x.getDay()+6)%7; x.setDate(x.getDate()-dow); return todayKey(x); }
 function week(){ if(!DB.weeks[weekKey()]) DB.weeks[weekKey()]={taicho:0,hitote:'',yokatta:'',u:0}; return DB.weeks[weekKey()]; }
@@ -538,7 +539,7 @@ function renderToday(){
   const yk=todayKey(new Date(Date.now()-86400000));
   const yd=DB.days[yk];
   const banner=document.getElementById('reopenBanner');
-  const yesterdayZero = yd && !yd.checks.manga && !isRest(yd.mode);
+  const yesterdayZero = yd && !(yd.checks&&yd.checks.manga) && !isRest(yd.mode);
   banner.innerHTML=(yesterdayZero && d.checks.manga)?
     '<div class="card" style="background:var(--ok-soft); border-color:var(--ok)"><b>再開！</b> 昨日のゼロは帳消し。これが一番えらい。</div>':'';
   const rest=isRest(d.mode);
