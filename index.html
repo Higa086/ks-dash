@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>行動指針 — AI漫画活動</title>
+<style>
+:root{
+  --bg:#f6f4ef; --card:#ffffff; --ink:#2b2a26; --sub:#8a867c;
+  --accent:#c05621; --accent-soft:#fdf0e7; --ok:#3d7a4f; --ok-soft:#e8f3ec;
+  --line:#e8e4da; --gold:#fff7e0; --dim:#b7b3a8; --blue:#33608d; --blue-soft:#e9f0f7;
+  --radius:16px;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#1c1b18; --card:#26241f; --ink:#ece9e0; --sub:#9a968a;
+    --accent:#e07a3f; --accent-soft:#3a2a1d; --ok:#6db986; --ok-soft:#233b2b;
+    --line:#3a372f; --gold:#39331d; --dim:#5c584d; --blue:#7ea8d0; --blue-soft:#22303e;}
+}
+*{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
+body{font-family:"Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic UI",sans-serif;
+  background:var(--bg); color:var(--ink); font-size:15px; line-height:1.6;
+  max-width:520px; margin:0 auto; padding:12px 12px 90px;}
+h1{font-size:17px; font-weight:700;}
+.sub{color:var(--sub); font-size:12px;}
+.card{background:var(--card); border-radius:var(--radius); padding:14px 16px; margin-bottom:12px;
+  border:1px solid var(--line); box-shadow:0 1px 3px rgba(0,0,0,.04);}
+.header{display:flex; justify-content:space-between; align-items:baseline; margin:6px 2px 12px;}
+.syncdot{font-size:11px; padding:2px 9px; border-radius:99px; border:1px solid var(--line); color:var(--sub);}
+.syncdot.on{color:var(--ok); border-color:var(--ok);}
+.syncdot.err{color:var(--accent); border-color:var(--accent);}
+.modes{display:flex; gap:6px; flex-wrap:wrap; margin-top:8px;}
+.chip{border:1.5px solid var(--line); background:var(--card); color:var(--sub);
+  border-radius:999px; padding:7px 13px; font-size:13px; font-weight:600; cursor:pointer;}
+.chip.on{border-color:var(--accent); background:var(--accent-soft); color:var(--accent);}
+.chip.mini{padding:5px 11px; font-size:12px;}
+.chip.ok{border-color:var(--ok); background:var(--ok-soft); color:var(--ok);}
+.victory{background:var(--gold); border:1px solid var(--line); border-radius:var(--radius);
+  padding:12px 14px; margin-bottom:12px; font-size:14px;}
+.victory b{display:block; font-size:12px; color:var(--sub); font-weight:600; margin-bottom:2px;}
+.item{display:flex; align-items:center; gap:12px; padding:11px 4px; border-bottom:1px solid var(--line); cursor:pointer; user-select:none;}
+.item:last-child{border-bottom:none;}
+.box{width:26px; height:26px; border-radius:8px; border:2px solid var(--dim); flex:none;
+  display:flex; align-items:center; justify-content:center; font-size:16px; color:#fff; transition:all .15s;}
+.item.done .box{background:var(--ok); border-color:var(--ok);}
+.item .label{flex:1;}
+.item .hint{font-size:11.5px; color:var(--sub);}
+.item.done .label{color:var(--sub); text-decoration:line-through; text-decoration-color:var(--dim);}
+.item.star .label b::after{content:" ★"; color:var(--accent);}
+.item.cut{opacity:.4; pointer-events:none;}
+.counter{display:flex; align-items:center; gap:10px; padding:10px 4px;}
+.cbtn{width:38px; height:38px; border-radius:12px; border:1.5px solid var(--line); background:var(--card);
+  font-size:20px; color:var(--ink); cursor:pointer;}
+.cnum{font-size:22px; font-weight:700; min-width:56px; text-align:center;}
+.tl{font-size:13px;}
+.tl .row{display:flex; gap:10px; padding:5px 2px; border-left:3px solid transparent; padding-left:8px; border-radius:4px;}
+.tl .row.now{background:var(--accent-soft); border-left-color:var(--accent); font-weight:700;}
+.tl .t{color:var(--sub); flex:none; width:88px; font-variant-numeric:tabular-nums;}
+.dots{display:flex; gap:8px; justify-content:space-between; margin:10px 0;}
+.dot{flex:1; text-align:center;}
+.dot .c{width:34px; height:34px; border-radius:50%; margin:0 auto 3px; border:2px solid var(--line);
+  display:flex; align-items:center; justify-content:center; font-size:14px; background:var(--card);}
+.dot.work .c{background:var(--ok); border-color:var(--ok); color:#fff;}
+.dot.rest .c{background:var(--blue-soft); border-color:var(--blue); color:var(--blue);}
+.dot.today .c{outline:2.5px solid var(--accent); outline-offset:2px;}
+.dot .d{font-size:10.5px; color:var(--sub);}
+.bar{height:10px; background:var(--line); border-radius:99px; overflow:hidden; margin:6px 0 2px;}
+.bar>div{height:100%; background:var(--ok); border-radius:99px; transition:width .3s;}
+.btn{display:inline-block; border:none; background:var(--accent); color:#fff; font-weight:700;
+  border-radius:12px; padding:10px 16px; font-size:14px; cursor:pointer; margin-top:8px;}
+.btn.ghost{background:var(--card); color:var(--accent); border:1.5px solid var(--accent);}
+textarea,input[type=text],select{width:100%; border:1.5px solid var(--line); border-radius:10px; padding:9px 10px;
+  font-size:14px; font-family:inherit; background:var(--bg); color:var(--ink); margin-top:6px;}
+.principle{font-size:14px; padding:13px 15px; background:var(--blue-soft); border-radius:var(--radius);
+  border:1px solid var(--line); margin-bottom:12px;}
+.principle .tag{font-size:11px; color:var(--blue); font-weight:700;}
+.taicho{display:flex; gap:8px; margin-top:6px;}
+.taicho button{flex:1; padding:9px 0; border-radius:10px; border:1.5px solid var(--line); background:var(--card);
+  font-size:15px; cursor:pointer; color:var(--ink);}
+.taicho button.on{background:var(--accent-soft); border-color:var(--accent); color:var(--accent); font-weight:700;}
+.tabs{position:fixed; bottom:0; left:0; right:0; max-width:520px; margin:0 auto;
+  display:flex; background:var(--card); border-top:1px solid var(--line); z-index:10;}
+.tab{flex:1; text-align:center; padding:10px 0 max(10px, env(safe-area-inset-bottom)); font-size:11.5px; color:var(--sub); cursor:pointer; font-weight:600;}
+.tab.on{color:var(--accent);}
+.tab .ic{font-size:18px; display:block;}
+.page{display:none;} .page.on{display:block;}
+h2{font-size:14px; margin-bottom:6px; color:var(--sub); font-weight:700;}
+table{width:100%; border-collapse:collapse; font-size:12.5px;}
+td,th{padding:7px 6px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top;}
+th{color:var(--sub); font-weight:600;}
+.small{font-size:12px; color:var(--sub);}
+.restmsg{text-align:center; padding:28px 10px; font-size:15px;}
+.restmsg .big{font-size:34px; display:block; margin-bottom:8px;}
+.toast{position:fixed; bottom:74px; left:50%; transform:translateX(-50%); background:var(--ink); color:var(--bg);
+  padding:9px 18px; border-radius:99px; font-size:13px; opacity:0; transition:opacity .3s; pointer-events:none; z-index:20;}
+.toast.show{opacity:1;}
+.settings-row{display:flex; justify-content:space-between; align-items:center; padding:8px 2px;}
+.switch{width:46px; height:26px; border-radius:99px; background:var(--line); position:relative; cursor:pointer; flex:none;}
+.switch::after{content:""; position:absolute; width:20px; height:20px; border-radius:50%; background:#fff; top:3px; left:3px; transition:left .15s;}
+.switch.on{background:var(--ok);} .switch.on::after{left:23px;}
+/* calendar */
+.calhead{display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;}
+.calhead b{font-size:16px;}
+.navbtn{width:36px; height:36px; border-radius:10px; border:1.5px solid var(--line); background:var(--card); font-size:16px; cursor:pointer; color:var(--ink);}
+.calgrid{display:grid; grid-template-columns:repeat(7,1fr); gap:4px;}
+.calgrid .wd{text-align:center; font-size:10.5px; color:var(--sub); padding:2px 0;}
+.cell{aspect-ratio:1; border-radius:10px; border:1.5px solid var(--line); background:var(--card);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; font-size:13px; position:relative;}
+.cell.blank{border:none; background:transparent; cursor:default;}
+.cell.work{background:var(--ok-soft); border-color:var(--ok);}
+.cell.rest{background:var(--blue-soft); border-color:var(--blue);}
+.cell.zero{background:var(--card);}
+.cell.today{outline:2.5px solid var(--accent); outline-offset:1px;}
+.cell.sel{border-color:var(--accent); border-width:2.5px;}
+.cell .pg{font-size:9.5px; color:var(--ok); font-weight:700; line-height:1;}
+.cell .mk{position:absolute; top:2px; right:4px; font-size:9px; color:var(--blue);}
+.cell.future{opacity:.45;}
+/* stats */
+.statrow{display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--line); font-size:12.5px;}
+.statrow:last-child{border-bottom:none;}
+.statrow .sn{width:56px; flex:none; font-weight:600;}
+.statrow .sbar{flex:1; height:8px; background:var(--line); border-radius:99px; overflow:hidden;}
+.statrow .sbar>div{height:100%; background:var(--ok);}
+.statrow .sp{width:40px; text-align:right; flex:none; font-variant-numeric:tabular-nums;}
+.statrow .sc{width:90px; flex:none; text-align:right; color:var(--sub); font-size:11px;}
+.mchart{display:flex; align-items:flex-end; gap:6px; height:90px; margin-top:8px;}
+.mchart .mb{flex:1; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; height:100%;}
+.mchart .mb .bararea{width:100%; flex:1; display:flex; flex-direction:column; justify-content:flex-end;}
+.mchart .mb .bararea>div{width:100%; background:var(--blue); border-radius:4px 4px 0 0; min-height:2px;}
+.mchart .ml{font-size:10px; color:var(--sub); margin-top:2px;}
+.mchart .mv{font-size:10px; font-weight:700;}
+.bignum{font-size:22px; font-weight:700;}
+.statgrid{display:grid; grid-template-columns:1fr 1fr; gap:8px; text-align:center;}
+.statgrid .card2{background:var(--bg); border-radius:12px; padding:10px 6px; border:1px solid var(--line);}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div><h1 id="dateTitle">—</h1><div class="sub" id="phaseLabel">—</div></div>
+  <div style="text-align:right"><div class="sub" id="clock">--:--</div>
+  <span class="syncdot" id="syncDot" onclick="showPage('rules')">⚪ ローカル</span></div>
+</div>
+
+<!-- ============ 今日 ============ -->
+<div class="page on" id="page-today">
+  <div class="card">
+    <h2>今日のモード宣言 <span class="small">(宣言した休みはサボりではなく計画)</span></h2>
+    <div class="modes" id="modeChips"></div>
+  </div>
+  <div class="victory" id="victoryBox"></div>
+  <div class="principle" id="principleBox"></div>
+  <div id="reopenBanner"></div>
+  <div class="card" id="checkCard">
+    <h2>今日のチェック</h2>
+    <div id="checkList"></div>
+    <div class="counter" id="pageCounter">
+      <button class="cbtn" onclick="chgPages(-1)">−</button>
+      <div class="cnum" id="pageNum">0</div>
+      <button class="cbtn" onclick="chgPages(1)">＋</button>
+      <div><b>本編ページ</b><div class="hint">週20Pで週刊連載ペース</div></div>
+    </div>
+    <div class="counter" id="kotowariRow" style="display:none">
+      <button class="cbtn" onclick="chgKotowari(-1)">−</button>
+      <div class="cnum" id="kotowariNum">0</div>
+      <button class="cbtn" onclick="chgKotowari(1)">＋</button>
+      <div><b>断れた回数</b><div class="hint">「体調が読めないので、お約束できないです」+黙る</div></div>
+    </div>
+    <div class="small" style="margin-top:6px">今日のメモ</div>
+    <textarea id="todayMemo" rows="2" placeholder="一言でOK（何を作った/どうだった）" onchange="saveTodayMemo()"></textarea>
+  </div>
+  <div class="card" id="restCard" style="display:none"></div>
+  <div class="card">
+    <h2>今日の体調 (1-5)</h2>
+    <div class="taicho" id="dayTaicho"></div>
+    <div class="small" id="dayTaichoNote" style="margin-top:6px"></div>
+  </div>
+  <div class="card" id="tlCard">
+    <h2>1日の型 <span class="small" id="tlNote"></span></h2>
+    <div class="tl" id="timeline"></div>
+  </div>
+</div>
+
+<!-- ============ カレンダー ============ -->
+<div class="page" id="page-cal">
+  <div class="card">
+    <div class="calhead">
+      <button class="navbtn" onclick="calMove(-1)">‹</button>
+      <b id="calTitle">—</b>
+      <button class="navbtn" onclick="calMove(1)">›</button>
+    </div>
+    <div class="calgrid" id="calGrid"></div>
+    <div class="small" style="margin-top:8px" id="calSummary"></div>
+    <div class="bar"><div id="monthBar" style="width:0%; background:var(--blue)"></div></div>
+    <div class="small">月間目標 <input type="number" id="mGoal" style="width:70px; padding:4px 6px; margin:0 4px; display:inline-block;" onchange="setMGoal()"> P（1作=本編約70P）</div>
+    <div class="small" style="margin-top:4px">🟩 制作した日　🟦 休日/休養宣言　⬜ 記録なし　※タップでその日を編集（さかのぼり記録OK）</div>
+  </div>
+  <div class="card" id="dayEditor" style="display:none">
+    <h2 id="editTitle">—</h2>
+    <div class="small">モード</div>
+    <div class="modes" id="editModes"></div>
+    <div class="small" style="margin-top:10px">チェック（タップで切替）</div>
+    <div class="modes" id="editChecks"></div>
+    <div class="counter">
+      <button class="cbtn" onclick="editPages(-1)">−</button>
+      <div class="cnum" id="editPageNum">0</div>
+      <button class="cbtn" onclick="editPages(1)">＋</button>
+      <div><b>本編ページ</b></div>
+    </div>
+    <div class="small">体調 (1-5)</div>
+    <div class="modes" id="editTaicho"></div>
+    <div class="small">メモ</div>
+    <textarea id="editMemo" rows="2" placeholder="この日のメモ" onchange="saveEditMemo()"></textarea>
+  </div>
+</div>
+
+<!-- ============ 統計 ============ -->
+<div class="page" id="page-stats">
+  <div class="card">
+    <h2>積み重ね（全期間）</h2>
+    <div class="statgrid">
+      <div class="card2"><div class="bignum" id="stWorkDays">0</div><div class="small">制作した日</div></div>
+      <div class="card2"><div class="bignum" id="stPages">0</div><div class="small">本編ページ累計</div></div>
+      <div class="card2"><div class="bignum" id="stSaikai">0</div><div class="small">再開回数（誇るところ）</div></div>
+      <div class="card2"><div class="bignum" id="stKotowari">0</div><div class="small">断れた回数</div></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>習慣の達成率（直近30日）<span class="small">宣言した休み/休養日は分母から除外</span></h2>
+    <div id="statRows"></div>
+  </div>
+  <div class="card">
+    <h2>月別 本編ページ（直近6ヶ月）</h2>
+    <div class="mchart" id="mChart"></div>
+  </div>
+  <div class="card">
+    <h2>体調</h2>
+    <div class="small">直近7日の平均: <b id="stTaicho" style="font-size:18px">—</b> / 5</div>
+    <div class="small" id="stTaichoNote" style="margin-top:4px"></div>
+  </div>
+</div>
+
+<!-- ============ 週 ============ -->
+<div class="page" id="page-week">
+  <div class="card">
+    <h2 id="weekTitle">今週</h2>
+    <div class="dots" id="weekDots"></div>
+    <div><b id="workDays">0</b><span class="small"> / 5日で合格（週6想定・5日で◎・4日なら翌週の目標を下げる）</span></div>
+    <div class="bar"><div id="workBar" style="width:0%"></div></div>
+    <div style="margin-top:10px"><b id="weekPages">0</b><span class="small"> / 20P（本編期の目標）</span></div>
+    <div class="bar"><div id="pageBar" style="width:0%; background:var(--blue)"></div></div>
+  </div>
+  <div class="card">
+    <h2>週次振り返り（日曜15分）— 反省会ではなく「来週の一手」を決める場</h2>
+    <div class="small">今週の体調 (1-5)</div>
+    <div class="taicho" id="taichoBtns"></div>
+    <div class="small" style="margin-top:10px">来週の一手（1つだけ）</div>
+    <input type="text" id="hitote" placeholder="例: 9時に座る、を6日続ける" onchange="saveWeekMeta()">
+    <div class="small" style="margin-top:10px">良かったこと</div>
+    <input type="text" id="yokatta" placeholder="小さいことでOK" onchange="saveWeekMeta()">
+    <div class="small" id="taichoWarn" style="margin-top:8px"></div>
+  </div>
+  <div class="card">
+    <h2>Discord定例報告（8人サーバー用・日曜）</h2>
+    <textarea id="discordText" rows="6" readonly></textarea>
+    <button class="btn" onclick="copyDiscord()">コピーする</button>
+    <button class="btn ghost" onclick="buildDiscord()">再生成</button>
+  </div>
+</div>
+
+<!-- ============ 原則 ============ -->
+<div class="page" id="page-rules">
+  <div class="card">
+    <h2>同期設定（PC⇄スマホ リアルタイム連動）</h2>
+    <div class="small" id="syncStatusText">未設定（この端末のみに保存中）</div>
+    <div class="small" style="margin-top:8px">Firebase Database URL</div>
+    <input type="text" id="cfgDb" placeholder="https://xxxx-default-rtdb.firebaseio.com">
+    <div class="small" style="margin-top:8px">同期コード（両方の端末で同じものを入力）</div>
+    <input type="text" id="cfgCode" placeholder="例: t7k-a9x-...">
+    <button class="btn ghost" onclick="genCode()">コードを生成</button>
+    <button class="btn" onclick="startSync()">同期を開始</button>
+    <button class="btn ghost" onclick="stopSync()">同期を停止</button>
+    <button class="btn ghost" onclick="copyCfg()">設定をコピー（スマホへ送る用）</button>
+    <p class="small" style="margin-top:8px">初回設定（5分・無料）: ① console.firebase.google.com でプロジェクト作成 → ② 構築>Realtime Database>作成（テストモード）→ ③ 表示されるURLを上に貼る → ④ コード生成 → 開始。スマホ側は同じURLとコードを入れるだけ。<br>
+    ※データはURLとコードを知る人だけが読み書きできる場所に置かれます。本名や固有名詞はメモに書かない運用推奨。テストモードは30日で失効するので、ルールを {".read": true, ".write": true} に変更してください。</p>
+  </div>
+  <div class="card">
+    <h2>合言葉</h2>
+    <p>「ゼロの日を作らない。ただし作ってしまった日も、<b>翌日9時に座れば帳消し</b>」</p>
+    <p class="small" style="margin-top:6px">連続記録より再開回数。1週間止まっても計画は死なない。</p>
+  </div>
+  <div class="card">
+    <h2>イレギュラー日プロトコル</h2>
+    <table>
+      <tr><th>ケース</th><th>扱い</th><th>最低ライン</th></tr>
+      <tr><td>寝坊・不眠明け</td><td>短縮日: 午後に漫画1.5hだけ+夕方運動</td><td>漫画に5分</td></tr>
+      <tr><td>デート・映画・ゲーム</td><td>休日宣言。制作ゼロOK・罪悪感禁止（夫婦時間は退職理由そのもの）</td><td>なし</td></tr>
+      <tr><td>半日潰れる日</td><td>半日版: ゴールデンタイム3hだけ死守。座学・ジムはカット</td><td>漫画1ブロック</td></tr>
+      <tr><td>体調1-2</td><td>休養日。回復が仕事。ゲームと睡眠も消耗の返済</td><td>なし</td></tr>
+      <tr><td>W杯・夜更かし</td><td>翌日を最初から短縮日として計画（中止ではなく縮小）</td><td>漫画に5分</td></tr>
+    </table>
+    <p class="small" style="margin-top:8px">原則: 取り返すのは「週」で。夜更かしで取り返さない。前夜に宣言（事後宣言もOK）。イレギュラー週3日超は根性ではなく計画を点検。将棋は3連敗で強制終了。</p>
+  </div>
+  <div class="card">
+    <h2>PC誘惑ルール（X・FANZA・DLsite）</h2>
+    <p class="small">・9:00-12:00はブロック（開けない＞我慢）<br>
+    ・リサーチは週1回30分・タイマー必須。開く前に「何を調べるか」を1行→書けないなら開かない<br>
+    ・終わったら3行メモ（傾向/ネタ/次作への示唆）<br>
+    ・SNSは投稿のみ。タイムラインは見ない。数値確認は週次で</p>
+  </div>
+  <div class="card">
+    <h2>在籍中（〜退職）のルール</h2>
+    <p class="small">・新しい責任を引き受けない。断り台本:「体調が読めないので、お約束できないです」+黙る<br>
+    ・即答しない。「確認して明日返します」<br>
+    ・<b>8月末までに役員へ退職相談（体調が良くても悪くても）</b><br>
+    ・退職相談→引継ぎ→お別れの順</p>
+  </div>
+  <div class="card">
+    <h2>撤退ライン（=これはギャンブルではなく挑戦）</h2>
+    <p class="small">・直近6ヶ月の平均月収が30万未満 → 再就職活動を開始<br>
+    ・貯蓄残高100万を切ったら → 再就職活動を開始<br>
+    ・一級建築士+実績=戻り道つき。撤退は失敗ではなく設計の一部<br>
+    ・広告は新作時に集中投下。初動2週間のデータを見てから追加判断。感情で追い金しない</p>
+  </div>
+  <div class="card">
+    <h2>環境設計の原則</h2>
+    <p class="small">・自分は意志ではなく<b>環境の切替</b>で結果を出す人（実証: 解約/転職/判定の外注）<br>
+    ・ルーティン表を作りたくなったら「環境の変更に翻訳するとどうなるか」と変換<br>
+    ・「納得」の判定者を自分から外す（自己評価は周囲評価より30点低く出る癖）<br>
+    ・受託しない。リリースは月1が<b>上限</b>。ブレーキはやりすぎ防止<br>
+    ・座学は漫画の代わりにならない</p>
+  </div>
+  <div class="card">
+    <h2>設定・データ</h2>
+    <div class="settings-row"><div><b>在籍中モード</b><div class="small">朝1h版+断る練習カウンター</div></div>
+      <div class="switch" id="zaisekiSwitch" onclick="toggleZaiseki()"></div></div>
+    <button class="btn ghost" onclick="exportData()">データを書き出す</button>
+    <button class="btn ghost" onclick="importData()">読み込む</button>
+    <input type="file" id="importFile" accept=".json" style="display:none">
+    <p class="small" style="margin-top:8px">同期設定済みならクラウドが本体、この端末は写し。念のため月1回書き出し推奨。</p>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab on" data-page="today" onclick="showPage('today')"><span class="ic">☀</span>今日</div>
+  <div class="tab" data-page="cal" onclick="showPage('cal')"><span class="ic">📅</span>カレンダー</div>
+  <div class="tab" data-page="week" onclick="showPage('week')"><span class="ic">▦</span>週</div>
+  <div class="tab" data-page="stats" onclick="showPage('stats')"><span class="ic">📈</span>統計</div>
+  <div class="tab" data-page="rules" onclick="showPage('rules')"><span class="ic">✦</span>原則</div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ================= data =================
+const KEY='kodo_shishin_v2';
+let DB = load();
+const DEV = getDev();
+function getDev(){ let d=localStorage.getItem('ks_dev'); if(!d){ d='d'+Math.random().toString(36).slice(2,10); localStorage.setItem('ks_dev',d);} return d; }
+function load(){
+  try{ const v2=JSON.parse(localStorage.getItem(KEY)); if(v2) return v2; }catch(e){}
+  try{ const v1=JSON.parse(localStorage.getItem('kodo_shishin_v1'));
+    if(v1){ Object.values(v1.days||{}).forEach(r=>r.u=r.u||1); return v1; } }catch(e){}
+  return {days:{},weeks:{},settings:{}};
+}
+function persist(){ localStorage.setItem(KEY, JSON.stringify(DB)); }
+function save(){ persist(); schedulePush(); }
+function todayKey(d=new Date()){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function day(k=todayKey()){ if(!DB.days[k]) DB.days[k]={mode:'normal',checks:{},pages:0,kotowari:0,memo:'',u:0}; return DB.days[k]; }
+function touch(rec){ rec.u=Date.now(); }
+function weekKey(d=new Date()){ const x=new Date(d.getFullYear(),d.getMonth(),d.getDate()); const dow=(x.getDay()+6)%7; x.setDate(x.getDate()-dow); return todayKey(x); }
+function week(){ if(!DB.weeks[weekKey()]) DB.weeks[weekKey()]={taicho:0,hitote:'',yokatta:'',u:0}; return DB.weeks[weekKey()]; }
+
+// ================= sync (Firebase RTDB REST) =================
+let ES=null, pushTimer=null, lastPushed='';
+function syncCfg(){ return DB.settings.sync || null; }
+function setDot(state,label){ const el=document.getElementById('syncDot');
+  el.className='syncdot'+(state==='on'?' on':state==='err'?' err':'');
+  el.textContent=(state==='on'?'🟢 ':state==='err'?'🔴 ':'⚪ ')+label; }
+function syncUrl(){ const c=syncCfg(); if(!c) return null;
+  let db=c.db.trim().replace(/\/+$/,''); return db+'/r/'+encodeURIComponent(c.code.trim())+'.json'; }
+function payload(){
+  return {v:2, from:DEV, t:Date.now(), days:DB.days, weeks:DB.weeks,
+    st:{zaiseki:!!DB.settings.zaiseki, zu:DB.settings.zu||0, mGoal:DB.settings.mGoal||70, gu:DB.settings.gu||0}};
+}
+function schedulePush(){ if(!syncCfg()) return;
+  clearTimeout(pushTimer); pushTimer=setTimeout(pushNow, 700); }
+async function pushNow(){
+  const url=syncUrl(); if(!url) return;
+  const body=JSON.stringify(payload());
+  const cmp=JSON.stringify([DB.days,DB.weeks,payload().st]);
+  if(cmp===lastPushed) return;
+  try{ const r=await fetch(url,{method:'PUT',body});
+    if(r.ok){ lastPushed=cmp; setDot('on','同期中'); } else setDot('err','エラー');
+  }catch(e){ setDot('err','オフライン'); }
+}
+function mergeRemote(rm){
+  if(!rm) return;
+  let changed=false;
+  ['days','weeks'].forEach(part=>{
+    const R=rm[part]||{};
+    Object.keys(R).forEach(k=>{
+      const l=DB[part][k], r=R[k];
+      if(!l || (r.u||0)>(l.u||0)){ DB[part][k]=r; changed=true; }
+    });
+  });
+  if(rm.st && (rm.st.zu||0)>(DB.settings.zu||0)){
+    DB.settings.zaiseki=rm.st.zaiseki; DB.settings.zu=rm.st.zu; changed=true;
+  }
+  if(rm.st && (rm.st.gu||0)>(DB.settings.gu||0)){
+    DB.settings.mGoal=rm.st.mGoal||70; DB.settings.gu=rm.st.gu; changed=true;
+  }
+  if(changed){ persist(); renderAll(); }
+}
+async function fetchAndMerge(){
+  const url=syncUrl(); if(!url) return;
+  try{ const r=await fetch(url); if(r.ok){ const d=await r.json(); mergeRemote(d); setDot('on','同期中'); pushNow(); } }
+  catch(e){ setDot('err','オフライン'); }
+}
+function startStream(){
+  const url=syncUrl(); if(!url) return;
+  if(ES){ ES.close(); ES=null; }
+  try{
+    ES=new EventSource(url);
+    ES.addEventListener('put', e=>{
+      try{ const m=JSON.parse(e.data);
+        if(m.path==='/' ){ if(m.data && m.data.from!==DEV) mergeRemote(m.data); if(m.data) setDot('on','同期中'); }
+        else fetchAndMerge();
+      }catch(err){}
+    });
+    ES.addEventListener('patch', ()=>fetchAndMerge());
+    ES.onerror=()=>setDot('err','再接続中…');
+    ES.onopen=()=>setDot('on','同期中');
+  }catch(e){ setDot('err','非対応'); }
+}
+function startSync(){
+  const db=document.getElementById('cfgDb').value.trim();
+  const code=document.getElementById('cfgCode').value.trim();
+  if(!db||!code){ toast('URLとコードを入力してください'); return; }
+  if(!/^https:\/\//.test(db)){ toast('URLは https:// から'); return; }
+  DB.settings.sync={db,code}; persist();
+  document.getElementById('syncStatusText').textContent='同期先: '+db;
+  fetchAndMerge().then(startStream);
+  toast('同期を開始しました');
+}
+function stopSync(){ if(ES)ES.close(); ES=null; delete DB.settings.sync; persist();
+  setDot('','ローカル'); document.getElementById('syncStatusText').textContent='未設定（この端末のみに保存中）'; toast('停止しました'); }
+function genCode(){
+  const s='abcdefghjkmnpqrstuvwxyz23456789'; let c='';
+  for(let i=0;i<12;i++){ c+=s[Math.floor(Math.random()*s.length)]; if(i===3||i===7)c+='-'; }
+  document.getElementById('cfgCode').value=c;
+}
+function copyCfg(){
+  const db=document.getElementById('cfgDb').value.trim(), code=document.getElementById('cfgCode').value.trim();
+  const txt='行動指針アプリ 同期設定\nDatabase URL: '+db+'\n同期コード: '+code;
+  navigator.clipboard ? navigator.clipboard.writeText(txt).then(()=>toast('コピーしました')) : toast('手動でコピーしてください');
+}
+
+// ================= config =================
+const MODES=[
+ {id:'normal', label:'通常日'},
+ {id:'short',  label:'短縮日'},
+ {id:'half',   label:'半日版'},
+ {id:'off',    label:'休日'},
+ {id:'sick',   label:'休養日'},
+];
+const VICTORY={
+ normal:{t:'今日の勝利条件',d:'9:00に机に座る。漫画に触る（1P・生成10回・ネーム1コマでも○）。完成度は不問、座ることが勝利。'},
+ short:{t:'短縮日の勝利条件',d:'午後に漫画1.5hだけ。夕方に運動を入れて今夜の入眠を立て直す。最低ライン: 漫画に5分。'},
+ half:{t:'半日版の勝利条件',d:'ゴールデンタイム3hだけ死守。座学・ジムは堂々とカット。'},
+ off:{t:'休日宣言',d:'制作ゼロでOK。罪悪感禁止 — 夫婦の時間は退職理由そのもの。週1休は計画の一部。'},
+ sick:{t:'休養日宣言',d:'回復が今日の仕事。ゲームと睡眠も消耗の返済。谷の日に人生の決断をしない。'},
+};
+const ITEMS=[
+ {id:'manga', label:'漫画に触る', hint:'1P・生成10回・1コマでも○', star:true, short:'漫画'},
+ {id:'riebe', label:'リベシティ', hint:'動画+メモ 1h（漫画の代わりにはならない）', short:'リベ'},
+ {id:'shuwa', label:'手話 15分', hint:'10月 手話検定5級', short:'手話'},
+ {id:'eigo',  label:'英語 15分', hint:'Langaku 1セクション', short:'英語'},
+ {id:'dokusho',label:'読書 15分', hint:'作品の種', short:'読書'},
+ {id:'gym',   label:'ジム / ラン', hint:'25〜50分。12月 NAHAマラソン', short:'運動'},
+ {id:'walk',  label:'7000歩', hint:'散歩はアイデア出しを兼ねる', short:'7000歩'},
+ {id:'wip',   label:'WIPを1枚ポスト', hint:'WIP=制作途中の絵。12:00に投稿だけ。TLは見ない', short:'WIP'},
+ {id:'diary', label:'日記', hint:'19:45', short:'日記'},
+];
+const CUT={ normal:[], short:[], half:['riebe','shuwa','eigo','dokusho','gym'], off:[], sick:[] };
+const TL_NORMAL=[
+ ['8:00-9:00','起床・朝ルーチン（通知は開かない・スマホ別室へ）',8,9],
+ ['9:00-12:00','漫画ゴールデンタイム 3h（25分+5分で回す）',9,12],
+ ['12:00-13:00','昼食+通知・SNSまとめて消化（スマホ解禁・WIPポスト）',12,13],
+ ['13:00-14:00','リベシティ 1h',13,14],
+ ['14:00-15:00','ジム（妻と行く日は1.5h）',14,15],
+ ['15:00-18:00','漫画 第2ブロック 2.5h（乗らない日は作業系に切替）',15,18],
+ ['18:00-19:00','夕食など',18,19],
+ ['19:00-19:45','ミニ座学（手話15+英語15+読書15）',19,19.75],
+ ['19:45-20:00','日記',19.75,20],
+ ['20:00-24:00','完全自由（罪悪感なしで遊ぶ）',20,24],
+];
+const PRINCIPLES=[
+ '完璧より完成。出してから直す。',
+ '座学は漫画の代わりにならない。',
+ '「納得」の判定は外注する。自己評価は30点低く出る癖がある。',
+ '取り返すのは週単位。夜更かしで取り返さない。',
+ '宣言した休みはサボりではなく計画。',
+ '乗らない日は作業系（モザイク・パッケージ）に切り替える。',
+ 'ルーティンが崩れたら、意志ではなく環境を変える。',
+ '受託しない。リリースは月1が上限。ブレーキはやりすぎ防止。',
+ '広告は原材料。感情で追い金しない。データで判断。',
+ '漫画は「なぜか稼ぐことのできる秘密の趣味」。実習科目ではない。',
+ '週5日で合格。4日なら自分を責めず計画を直す。',
+ 'アイデア出しは散歩とセット。机の前で唸らない。',
+];
+function isRest(m){ return m==='off'||m==='sick'; }
+
+// ================= render: today =================
+function renderToday(){
+  const d=day(); const now=new Date();
+  document.getElementById('dateTitle').textContent =
+    now.toLocaleDateString('ja-JP',{month:'long',day:'numeric',weekday:'short'});
+  const zaiseki=DB.settings.zaiseki;
+  document.getElementById('phaseLabel').textContent = zaiseki ? '在籍中モード: 円満退社と断る練習が主任務' : '専業モード: 週33h・月1作';
+  const chips=document.getElementById('modeChips'); chips.innerHTML='';
+  MODES.forEach(m=>{
+    const c=document.createElement('div'); c.className='chip'+(d.mode===m.id?' on':'');
+    c.textContent=m.label; c.onclick=()=>{ d.mode=m.id; touch(d); save(); renderAll(); };
+    chips.appendChild(c);
+  });
+  let v=VICTORY[d.mode];
+  if(zaiseki && d.mode==='normal') v={t:'今日の勝利条件（在籍中）',d:'朝1h漫画（ネーム1コマでも○）+ 断る練習。「体調が読めないので、お約束できないです」+黙る。'};
+  document.getElementById('victoryBox').innerHTML='<b>'+v.t+'</b>'+v.d;
+  const doy=Math.floor((now-new Date(now.getFullYear(),0,0))/86400000);
+  document.getElementById('principleBox').innerHTML='<span class="tag">今日の原則</span><br>'+PRINCIPLES[doy%PRINCIPLES.length];
+  const yk=todayKey(new Date(Date.now()-86400000));
+  const yd=DB.days[yk];
+  const banner=document.getElementById('reopenBanner');
+  const yesterdayZero = yd && !yd.checks.manga && !isRest(yd.mode);
+  banner.innerHTML=(yesterdayZero && d.checks.manga)?
+    '<div class="card" style="background:var(--ok-soft); border-color:var(--ok)"><b>再開！</b> 昨日のゼロは帳消し。これが一番えらい。</div>':'';
+  const rest=isRest(d.mode);
+  document.getElementById('checkCard').style.display=rest?'none':'block';
+  document.getElementById('tlCard').style.display=(d.mode==='normal'&&!zaiseki)?'block':'none';
+  const rc=document.getElementById('restCard');
+  rc.style.display=rest?'block':'none';
+  if(rest){
+    rc.innerHTML='<div class="restmsg"><span class="big">'+(d.mode==='off'?'🌿':'🛏')+'</span>'+
+      (d.mode==='off'?'今日は休日。完全オフでいい。<br>楽しんだ分だけ勝ち。':'今日は回復が仕事。<br>寝ることも仕事のうち。')+
+      '<div class="small" style="margin-top:10px">気が向いたら日記と散歩だけ、どうぞ。</div></div>';
+  } else {
+    const list=document.getElementById('checkList'); list.innerHTML='';
+    ITEMS.forEach(it=>{
+      const cut=CUT[d.mode].includes(it.id);
+      const el=document.createElement('div');
+      el.className='item'+(d.checks[it.id]?' done':'')+(it.star?' star':'')+(cut?' cut':'');
+      el.innerHTML='<div class="box">'+(d.checks[it.id]?'✓':'')+'</div><div class="label"><b>'+it.label+'</b><div class="hint">'+(cut?'今日はカット（半日版）':it.hint)+'</div></div>';
+      el.onclick=()=>{ d.checks[it.id]=!d.checks[it.id]; touch(d); save(); renderAll();
+        if(it.id==='manga'&&d.checks[it.id]) toast('今日は勝ち。'); };
+      list.appendChild(el);
+    });
+    document.getElementById('pageNum').textContent=d.pages||0;
+    document.getElementById('kotowariRow').style.display=zaiseki?'flex':'none';
+    document.getElementById('kotowariNum').textContent=d.kotowari||0;
+    document.getElementById('todayMemo').value=d.memo||'';
+  }
+  const h=now.getHours()+now.getMinutes()/60;
+  const tl=document.getElementById('timeline'); tl.innerHTML='';
+  TL_NORMAL.forEach(r=>{
+    const el=document.createElement('div');
+    el.className='row'+((h>=r[2]&&h<r[3])?' now':'');
+    el.innerHTML='<div class="t">'+r[0]+'</div><div>'+r[1]+'</div>';
+    tl.appendChild(el);
+  });
+  document.getElementById('tlNote').textContent='(専業・通常日)';
+  document.getElementById('zaisekiSwitch').className='switch'+(zaiseki?' on':'');
+  // daily taicho
+  const tbx=document.getElementById('dayTaicho'); tbx.innerHTML='';
+  for(let i=1;i<=5;i++){
+    const b=document.createElement('button'); b.textContent=i;
+    b.className=(d.taicho===i)?'on':'';
+    b.onclick=()=>{ d.taicho=i; touch(d); save(); renderToday();
+      if(i<=2) toast('体調2以下。休養日宣言もアリ。回復も仕事のうち。'); };
+    tbx.appendChild(b);
+  }
+  document.getElementById('dayTaichoNote').textContent =
+    d.taicho ? (d.taicho<=2?'低め。目標は半分に。予備日を先に使う。':'記録済み。寝る前に変わったら更新でOK。') : '1タップだけ。寝る前でもOK。';
+}
+function chgPages(n){ const d=day(); d.pages=Math.max(0,(d.pages||0)+n); if(n>0&&!d.checks.manga)d.checks.manga=true; touch(d); save(); renderAll(); }
+function chgKotowari(n){ const d=day(); d.kotowari=Math.max(0,(d.kotowari||0)+n); if(n>0) toast('よく断った。引き受け筋の筋肉痛はすぐ軽くなる。'); touch(d); save(); renderToday(); }
+function saveTodayMemo(){ const d=day(); d.memo=document.getElementById('todayMemo').value; touch(d); save(); renderCal(); }
+
+// ================= render: calendar =================
+let calY, calM, selKey=null;
+function initCal(){ const n=new Date(); calY=n.getFullYear(); calM=n.getMonth(); }
+function calMove(n){ calM+=n; if(calM<0){calM=11;calY--;} if(calM>11){calM=0;calY++;} selKey=null; renderCal(); document.getElementById('dayEditor').style.display='none'; }
+function renderCal(){
+  if(calY===undefined) initCal();
+  document.getElementById('calTitle').textContent=calY+'年 '+(calM+1)+'月';
+  const grid=document.getElementById('calGrid'); grid.innerHTML='';
+  ['月','火','水','木','金','土','日'].forEach(w=>{ const e=document.createElement('div'); e.className='wd'; e.textContent=w; grid.appendChild(e); });
+  const first=new Date(calY,calM,1); const blanks=(first.getDay()+6)%7;
+  const daysIn=new Date(calY,calM+1,0).getDate();
+  const tk=todayKey(); let workD=0, totP=0;
+  for(let i=0;i<blanks;i++){ const e=document.createElement('div'); e.className='cell blank'; grid.appendChild(e); }
+  for(let dd=1;dd<=daysIn;dd++){
+    const k=calY+'-'+String(calM+1).padStart(2,'0')+'-'+String(dd).padStart(2,'0');
+    const rec=DB.days[k];
+    const e=document.createElement('div'); let cls='cell';
+    if(rec){
+      if(rec.checks&&rec.checks.manga){ cls+=' work'; workD++; }
+      else if(isRest(rec.mode)) cls+=' rest';
+      totP+=rec.pages||0;
+    }
+    if(k===tk) cls+=' today';
+    if(k>tk) cls+=' future';
+    if(k===selKey) cls+=' sel';
+    e.className=cls;
+    e.innerHTML='<div>'+dd+'</div>'+(rec&&rec.pages?'<div class="pg">'+rec.pages+'P</div>':'')+
+      (rec&&rec.memo?'<div class="mk">✎</div>':'');
+    e.onclick=()=>{ selKey=k; renderCal(); renderEditor(k); };
+    grid.appendChild(e);
+  }
+  const goal=DB.settings.mGoal||70;
+  document.getElementById('calSummary').textContent='この月: 制作 '+workD+'日 / 本編 '+totP+'P / 目標'+goal+'P ('+Math.min(999,Math.round(totP/goal*100))+'%)';
+  document.getElementById('mGoal').value=goal;
+  document.getElementById('monthBar').style.width=Math.min(100,totP/goal*100)+'%';
+}
+function setMGoal(){ const v=parseInt(document.getElementById('mGoal').value)||70;
+  DB.settings.mGoal=v; DB.settings.gu=Date.now(); save(); renderCal(); }
+function renderEditor(k){
+  const ed=document.getElementById('dayEditor'); ed.style.display='block';
+  const rec=DB.days[k]||{mode:'normal',checks:{},pages:0,memo:''};
+  const dt=new Date(k);
+  document.getElementById('editTitle').textContent=dt.toLocaleDateString('ja-JP',{month:'long',day:'numeric',weekday:'short'})+' の記録';
+  const em=document.getElementById('editModes'); em.innerHTML='';
+  MODES.forEach(m=>{
+    const c=document.createElement('div'); c.className='chip mini'+(rec.mode===m.id?' on':'');
+    c.textContent=m.label;
+    c.onclick=()=>{ const r=day(k); r.mode=m.id; touch(r); save(); renderCal(); renderEditor(k); renderAll(); };
+    em.appendChild(c);
+  });
+  const ec=document.getElementById('editChecks'); ec.innerHTML='';
+  ITEMS.forEach(it=>{
+    const c=document.createElement('div'); c.className='chip mini'+((rec.checks&&rec.checks[it.id])?' ok':'');
+    c.textContent=((rec.checks&&rec.checks[it.id])?'✓ ':'')+it.short;
+    c.onclick=()=>{ const r=day(k); r.checks[it.id]=!r.checks[it.id]; touch(r); save(); renderCal(); renderEditor(k); renderAll(); };
+    ec.appendChild(c);
+  });
+  document.getElementById('editPageNum').textContent=rec.pages||0;
+  document.getElementById('editMemo').value=rec.memo||'';
+  const et=document.getElementById('editTaicho'); et.innerHTML='';
+  for(let i=1;i<=5;i++){
+    const c=document.createElement('div'); c.className='chip mini'+(rec.taicho===i?' ok':'');
+    c.textContent=i;
+    c.onclick=()=>{ const r=day(k); r.taicho=(r.taicho===i?0:i); touch(r); save(); renderEditor(k); };
+    et.appendChild(c);
+  }
+}
+function editPages(n){ if(!selKey)return; const r=day(selKey); r.pages=Math.max(0,(r.pages||0)+n); if(n>0&&!r.checks.manga)r.checks.manga=true; touch(r); save(); renderCal(); renderEditor(selKey); renderAll(); }
+function saveEditMemo(){ if(!selKey)return; const r=day(selKey); r.memo=document.getElementById('editMemo').value; touch(r); save(); renderCal(); }
+
+// ================= render: week =================
+function renderWeek(){
+  const wk=weekKey(); const start=new Date(wk);
+  const names=['月','火','水','木','金','土','日'];
+  const dots=document.getElementById('weekDots'); dots.innerHTML='';
+  let workDays=0, pages=0;
+  for(let i=0;i<7;i++){
+    const dt=new Date(start); dt.setDate(start.getDate()+i);
+    const k=todayKey(dt); const rec=DB.days[k];
+    const isToday=k===todayKey();
+    let cls='dot', mark='';
+    if(rec){
+      if(rec.checks&&rec.checks.manga){ cls+=' work'; mark='✓'; workDays++; }
+      else if(isRest(rec.mode)){ cls+=' rest'; mark=rec.mode==='off'?'休':'養'; }
+      pages+=rec.pages||0;
+    }
+    if(isToday) cls+=' today';
+    const el=document.createElement('div'); el.className=cls;
+    el.innerHTML='<div class="c">'+mark+'</div><div class="d">'+names[i]+' '+dt.getDate()+'</div>';
+    dots.appendChild(el);
+  }
+  document.getElementById('weekTitle').textContent='今週（'+(start.getMonth()+1)+'/'+start.getDate()+'〜）';
+  document.getElementById('workDays').textContent=workDays;
+  document.getElementById('workBar').style.width=Math.min(100,workDays/5*100)+'%';
+  document.getElementById('weekPages').textContent=pages;
+  document.getElementById('pageBar').style.width=Math.min(100,pages/20*100)+'%';
+  const w=week(); const tb=document.getElementById('taichoBtns'); tb.innerHTML='';
+  for(let i=1;i<=5;i++){
+    const b=document.createElement('button'); b.textContent=i;
+    b.className=w.taicho===i?'on':'';
+    b.onclick=()=>{ w.taicho=i; touch(w); save(); renderWeek(); };
+    tb.appendChild(b);
+  }
+  document.getElementById('hitote').value=w.hitote||'';
+  document.getElementById('yokatta').value=w.yokatta||'';
+  document.getElementById('taichoWarn').innerHTML=
+    (w.taicho&&w.taicho<=2)?'<b style="color:var(--accent)">体調2以下 → 来週の制作目標を半分に。予備日を先に使う。谷の週に人生の決断をしない。</b>':'';
+  buildDiscord(workDays,pages);
+}
+function saveWeekMeta(){ const w=week(); w.hitote=document.getElementById('hitote').value; w.yokatta=document.getElementById('yokatta').value; touch(w); save(); buildDiscord(); }
+function buildDiscord(wd,pg){
+  if(wd===undefined){
+    const wk=weekKey(); const start=new Date(wk); wd=0; pg=0;
+    for(let i=0;i<7;i++){ const dt=new Date(start); dt.setDate(start.getDate()+i);
+      const rec=DB.days[todayKey(dt)]; if(rec){ if(rec.checks&&rec.checks.manga)wd++; pg+=rec.pages||0; } }
+  }
+  const w=week();
+  const t='【週次報告】\n・今週: 制作'+wd+'日 / 本編'+pg+'P'+
+    (w.yokatta?('\n・進んだこと: '+w.yokatta):'')+
+    (w.hitote?('\n・来週の宣言: '+w.hitote):'\n・来週の宣言: （来週の一手を記入）')+
+    '\n・相談: ';
+  document.getElementById('discordText').value=t;
+}
+function copyDiscord(){
+  const ta=document.getElementById('discordText');
+  if(navigator.clipboard){ navigator.clipboard.writeText(ta.value).then(()=>toast('コピーしました')); }
+  else{ ta.select(); try{ document.execCommand('copy'); toast('コピーしました'); }catch(e){} }
+}
+
+// ================= render: stats =================
+function renderStats(){
+  const tk=todayKey(); const ym=tk.slice(0,7);
+  const keys=Object.keys(DB.days).sort();
+  // totals
+  let workDays=0, pagesTotal=0, kotowariTotal=0, saikai=0;
+  let lastNonRest=null;
+  if(keys.length){
+    const first=new Date(keys[0]); const end=new Date(tk);
+    for(let dt=new Date(first); dt<=end; dt.setDate(dt.getDate()+1)){
+      const k=todayKey(dt); const r=DB.days[k];
+      const done=r&&r.checks&&r.checks.manga;
+      const rest=r&&isRest(r.mode);
+      if(done){ workDays++; if(lastNonRest==='zero') saikai++; }
+      pagesTotal+=(r&&r.pages)||0;
+      kotowariTotal+=(r&&r.kotowari)||0;
+      if(!rest) lastNonRest = done?'work':'zero';
+    }
+  }
+  document.getElementById('stWorkDays').textContent=workDays;
+  document.getElementById('stPages').textContent=pagesTotal;
+  document.getElementById('stSaikai').textContent=saikai;
+  document.getElementById('stKotowari').textContent=kotowariTotal;
+  // habit rates (last 30 days, rest days excluded from denominator)
+  const rows=document.getElementById('statRows'); rows.innerHTML='';
+  ITEMS.forEach(it=>{
+    let done30=0, den30=0, month=0, total=0;
+    for(let i=0;i<30;i++){
+      const dt=new Date(); dt.setDate(dt.getDate()-i);
+      const k=todayKey(dt); const r=DB.days[k];
+      const rest=r&&isRest(r.mode);
+      if(rest) continue;
+      den30++;
+      if(r&&r.checks&&r.checks[it.id]) done30++;
+    }
+    keys.forEach(k=>{ const r=DB.days[k];
+      if(r&&r.checks&&r.checks[it.id]){ total++; if(k.slice(0,7)===ym) month++; } });
+    const pct=den30?Math.round(done30/den30*100):0;
+    const el=document.createElement('div'); el.className='statrow';
+    el.innerHTML='<div class="sn">'+it.short+'</div><div class="sbar"><div style="width:'+pct+'%"></div></div>'+
+      '<div class="sp">'+pct+'%</div><div class="sc">今月'+month+' / 計'+total+'</div>';
+    rows.appendChild(el);
+  });
+  // monthly pages chart (last 6 months)
+  const mc=document.getElementById('mChart'); mc.innerHTML='';
+  const months=[]; const now=new Date();
+  for(let i=5;i>=0;i--){
+    const d=new Date(now.getFullYear(), now.getMonth()-i, 1);
+    months.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'));
+  }
+  const sums=months.map(m=>keys.filter(k=>k.slice(0,7)===m).reduce((s,k)=>s+((DB.days[k].pages)||0),0));
+  const mx=Math.max(1,...sums);
+  months.forEach((m,i)=>{
+    const el=document.createElement('div'); el.className='mb';
+    el.innerHTML='<div class="mv">'+(sums[i]||'')+'</div><div class="bararea"><div style="height:'+Math.round(sums[i]/mx*100)+'%"></div></div><div class="ml">'+parseInt(m.slice(5))+'月</div>';
+    mc.appendChild(el);
+  });
+  // taicho avg last 7 days
+  let ts=0, tc=0;
+  for(let i=0;i<7;i++){
+    const dt=new Date(); dt.setDate(dt.getDate()-i);
+    const r=DB.days[todayKey(dt)];
+    if(r&&r.taicho){ ts+=r.taicho; tc++; }
+  }
+  const avg=tc?(ts/tc):0;
+  document.getElementById('stTaicho').textContent=tc?avg.toFixed(1):'—';
+  document.getElementById('stTaichoNote').textContent=
+    tc===0?'今日タブで1タップ記録すると、ここに平均が出ます。':
+    avg<=2.5?'低空飛行中。目標半減・予備日消化。谷の週に人生の決断をしない。':
+    avg>=4?'好調。ただしブレーキはやりすぎ防止——月1リリースが上限。':'ぼちぼち。それで充分回る設計です。';
+}
+
+// ================= misc =================
+function renderAll(){ renderToday(); renderWeek(); renderCal(); if(selKey) renderEditor(selKey); renderStats(); }
+function showPage(p){
+  document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));
+  document.getElementById('page-'+p).classList.add('on');
+  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x.dataset.page===p));
+  if(p==='week') renderWeek();
+  if(p==='cal') renderCal();
+  if(p==='stats') renderStats();
+  window.scrollTo(0,0);
+}
+function toggleZaiseki(){ DB.settings.zaiseki=!DB.settings.zaiseki; DB.settings.zu=Date.now(); save(); renderToday(); }
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
+function exportData(){
+  const blob=new Blob([JSON.stringify(DB,null,1)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='行動指針データ_'+todayKey()+'.json'; a.click();
+}
+function importData(){
+  const f=document.getElementById('importFile'); f.onchange=()=>{
+    const r=new FileReader(); r.onload=()=>{ try{ const nd=JSON.parse(r.result); mergeRemote({days:nd.days,weeks:nd.weeks,st:{zaiseki:nd.settings&&nd.settings.zaiseki,zu:Date.now()}}); DB.settings.sync=DB.settings.sync||((nd.settings||{}).sync); persist(); renderAll(); toast('読み込みました'); }catch(e){ toast('読み込み失敗'); } };
+    if(f.files[0]) r.readAsText(f.files[0]);
+  }; f.click();
+}
+setInterval(()=>{ const n=new Date();
+  document.getElementById('clock').textContent=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');
+},10000);
+document.getElementById('clock').textContent=new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+
+// boot
+initCal();
+renderAll();
+// Web公開版: 同期設定は「原則」タブで各端末1回だけ入力(保存されます)
+const cfg=syncCfg();
+if(cfg){ document.getElementById('cfgDb').value=cfg.db; document.getElementById('cfgCode').value=cfg.code;
+  document.getElementById('syncStatusText').textContent='同期先: '+cfg.db;
+  fetchAndMerge().then(startStream);
+} else setDot('','ローカル');
+setInterval(renderToday,60000);
+</script>
+</body>
+</html>
