@@ -139,6 +139,15 @@ th{color:var(--sub); font-weight:600;}
 .bignum{font-size:22px; font-weight:700;}
 .statgrid{display:grid; grid-template-columns:1fr 1fr; gap:8px; text-align:center;}
 .statgrid .card2{background:var(--bg); border-radius:12px; padding:10px 6px; border:1px solid var(--line);}
+/* todo */
+.titem{display:flex; align-items:center; gap:10px; padding:9px 2px; border-bottom:1px solid var(--line); cursor:pointer; user-select:none;}
+.titem:last-child{border-bottom:none;}
+.tbox{width:22px; height:22px; border-radius:7px; border:2px solid var(--dim); flex:none; display:flex; align-items:center; justify-content:center; font-size:13px; color:#fff;}
+.titem.done .tbox{background:var(--ok); border-color:var(--ok);}
+.titem .tx{flex:1;}
+.titem.done .tx{color:var(--sub); text-decoration:line-through; text-decoration-color:var(--dim);}
+.ttag{font-size:10px; color:var(--blue); border:1px solid var(--blue); border-radius:6px; padding:0 5px; flex:none;}
+details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:600; font-size:13px; color:var(--ink);}
 </style>
 </head>
 <body>
@@ -182,6 +191,11 @@ th{color:var(--sub); font-weight:600;}
     <div class="taicho" id="dayTaicho"></div>
     <div class="small" id="dayTaichoNote" style="margin-top:6px"></div>
   </div>
+  <div class="card">
+    <h2>ネタ帳（WIP・アイデアストック）</h2>
+    <textarea id="netaMemo" rows="4" placeholder="散歩中のひらめき、次作のネタ、WIP候補をここに書き溜める" onchange="saveNeta()"></textarea>
+    <div class="small">全端末で同期。消えません。</div>
+  </div>
   <div class="card" id="tlCard">
     <h2>1日の型 <span class="small" id="tlNote"></span></h2>
     <div class="tl" id="timeline"></div>
@@ -218,6 +232,25 @@ th{color:var(--sub); font-weight:600;}
     <div class="modes" id="editTaicho"></div>
     <div class="small">メモ</div>
     <textarea id="editMemo" rows="2" placeholder="この日のメモ" onchange="saveEditMemo()"></textarea>
+  </div>
+</div>
+
+<!-- ============ TODO ============ -->
+<div class="page" id="page-todo">
+  <div class="card">
+    <h2 id="todoTitle">TODO</h2>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <input type="text" id="todoInput" placeholder="タスクを追加（Enterで確定）" style="margin-top:0">
+      <button class="btn" style="margin-top:0" onclick="addTodo()">追加</button>
+    </div>
+    <div id="todoOpen" style="margin-top:10px"></div>
+    <div class="small" id="todoDoneTitle" style="margin-top:14px"></div>
+    <div id="todoDone"></div>
+    <div class="small" style="margin-top:10px">✓で下にスライド。月が替わると未完了は自動で持ち越し、完了分はアーカイブへ。</div>
+  </div>
+  <div class="card">
+    <h2>月別アーカイブ（完了タスク）</h2>
+    <div id="todoArchive" class="small"></div>
   </div>
 </div>
 
@@ -351,6 +384,7 @@ th{color:var(--sub); font-weight:600;}
 <div class="tabs">
   <div class="tab on" data-page="today" onclick="showPage('today')"><span class="ic">☀</span>今日</div>
   <div class="tab" data-page="cal" onclick="showPage('cal')"><span class="ic">📅</span>カレンダー</div>
+  <div class="tab" data-page="todo" onclick="showPage('todo')"><span class="ic">☑</span>TODO</div>
   <div class="tab" data-page="week" onclick="showPage('week')"><span class="ic">▦</span>週</div>
   <div class="tab" data-page="stats" onclick="showPage('stats')"><span class="ic">📈</span>統計</div>
   <div class="tab" data-page="rules" onclick="showPage('rules')"><span class="ic">✦</span>原則</div>
@@ -361,6 +395,7 @@ th{color:var(--sub); font-weight:600;}
 // ================= data =================
 const KEY='kodo_shishin_v2';
 let DB = load();
+DB.todos=DB.todos||{}; DB.notes=DB.notes||{t:'',u:0};
 const DEV = getDev();
 function getDev(){ let d=localStorage.getItem('ks_dev'); if(!d){ d='d'+Math.random().toString(36).slice(2,10); localStorage.setItem('ks_dev',d);} return d; }
 function load(){
@@ -387,7 +422,7 @@ function setDot(state,label){ const el=document.getElementById('syncDot');
 function syncUrl(){ const c=syncCfg(); if(!c) return null;
   let db=c.db.trim().replace(/\/+$/,''); return db+'/r/'+encodeURIComponent(c.code.trim())+'.json'; }
 function payload(){
-  return {v:2, from:DEV, t:Date.now(), days:DB.days, weeks:DB.weeks,
+  return {v:2, from:DEV, t:Date.now(), days:DB.days, weeks:DB.weeks, todos:DB.todos||{}, notes:DB.notes||{t:'',u:0},
     st:{zaiseki:!!DB.settings.zaiseki, zu:DB.settings.zu||0, mGoal:DB.settings.mGoal||70, gu:DB.settings.gu||0}};
 }
 function schedulePush(){ if(!syncCfg()) return;
@@ -404,7 +439,8 @@ async function pushNow(){
 function mergeRemote(rm){
   if(!rm) return;
   let changed=false;
-  ['days','weeks'].forEach(part=>{
+  DB.todos=DB.todos||{};
+  ['days','weeks','todos'].forEach(part=>{
     const R=rm[part]||{};
     Object.keys(R).forEach(k=>{
       const l=DB[part][k], r=R[k];
@@ -417,6 +453,7 @@ function mergeRemote(rm){
   if(rm.st && (rm.st.gu||0)>(DB.settings.gu||0)){
     DB.settings.mGoal=rm.st.mGoal||70; DB.settings.gu=rm.st.gu; changed=true;
   }
+  if(rm.notes && (rm.notes.u||0)>((DB.notes&&DB.notes.u)||0)){ DB.notes=rm.notes; changed=true; }
   if(changed){ persist(); renderAll(); }
 }
 async function fetchAndMerge(){
@@ -486,16 +523,16 @@ const ITEMS=[
  {id:'dokusho',label:'読書 15分', hint:'作品の種', short:'読書'},
  {id:'gym',   label:'ジム / ラン', hint:'25〜50分。12月 NAHAマラソン', short:'運動'},
  {id:'walk',  label:'7000歩', hint:'散歩はアイデア出しを兼ねる', short:'7000歩'},
- {id:'wip',   label:'WIPを1枚ポスト', hint:'WIP=制作途中の絵。12:00に投稿だけ。TLは見ない', short:'WIP'},
+ {id:'wip',   label:'WIPを1枚ポスト', hint:'WIP=制作途中の絵。14:00に投稿だけ。TLは見ない', short:'WIP'},
  {id:'diary', label:'日記', hint:'19:45', short:'日記'},
 ];
 const CUT={ normal:[], short:[], half:['riebe','shuwa','eigo','dokusho','gym'], off:[], sick:[] };
 const TL_NORMAL=[
  ['8:00-9:00','起床・朝ルーチン（通知は開かない・スマホ別室へ）',8,9],
  ['9:00-12:00','漫画ゴールデンタイム 3h（25分+5分で回す）',9,12],
- ['12:00-13:00','昼食+通知・SNSまとめて消化（スマホ解禁・WIPポスト）',12,13],
+ ['12:00-13:00','ジム（ラン25〜50分・妻と行く日は1.5h）',12,13],
  ['13:00-14:00','リベシティ 1h',13,14],
- ['14:00-15:00','ジム（妻と行く日は1.5h）',14,15],
+ ['14:00-15:00','昼食+通知・SNSまとめて消化（スマホ解禁・WIPポスト）',14,15],
  ['15:00-18:00','漫画 第2ブロック 2.5h（乗らない日は作業系に切替）',15,18],
  ['18:00-19:00','夕食など',18,19],
  ['19:00-19:45','ミニ座学（手話15+英語15+読書15）',19,19.75],
@@ -588,7 +625,10 @@ function renderToday(){
   }
   document.getElementById('dayTaichoNote').textContent =
     d.taicho ? (d.taicho<=2?'低め。目標は半分に。予備日を先に使う。':'記録済み。寝る前に変わったら更新でOK。') : '1タップだけ。寝る前でもOK。';
+  const na=document.getElementById('netaMemo');
+  if(na && document.activeElement!==na) na.value=(DB.notes&&DB.notes.t)||'';
 }
+function saveNeta(){ DB.notes={t:document.getElementById('netaMemo').value, u:Date.now()}; save(); }
 function chgPages(n){ const d=day(); d.pages=Math.max(0,(d.pages||0)+n); if(n>0&&!d.checks.manga)d.checks.manga=true; touch(d); save(); renderAll(); }
 function chgKotowari(n){ const d=day(); d.kotowari=Math.max(0,(d.kotowari||0)+n); if(n>0) toast('よく断った。引き受け筋の筋肉痛はすぐ軽くなる。'); touch(d); save(); renderToday(); }
 function saveTodayMemo(){ const d=day(); d.memo=document.getElementById('todayMemo').value; touch(d); save(); renderCal(); }
@@ -794,8 +834,51 @@ function renderStats(){
     avg>=4?'好調。ただしブレーキはやりすぎ防止——月1リリースが上限。':'ぼちぼち。それで充分回る設計です。';
 }
 
+// ================= render: todo =================
+function escT(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+function addTodo(){
+  const inp=document.getElementById('todoInput'); const t=inp.value.trim(); if(!t) return;
+  const id='t'+Date.now()+Math.random().toString(36).slice(2,6);
+  DB.todos[id]={text:t, created:todayKey().slice(0,7), done:null, u:Date.now()};
+  inp.value=''; save(); renderTodo();
+}
+function toggleTodo(id){ const it=DB.todos[id]; if(!it) return;
+  it.done=it.done?null:todayKey(); it.u=Date.now(); save(); renderTodo(); }
+function todoRow(id,it,ym){
+  const el=document.createElement('div'); el.className='titem'+(it.done?' done':'');
+  const carry=(!it.done && it.created && it.created<ym)?'<span class="ttag">'+parseInt(it.created.slice(5))+'月〜</span>':'';
+  el.innerHTML='<div class="tbox">'+(it.done?'✓':'')+'</div><div class="tx">'+escT(it.text)+'</div>'+carry;
+  el.onclick=()=>toggleTodo(id);
+  return el;
+}
+function renderTodo(){
+  const el=document.getElementById('todoTitle'); if(!el) return;
+  const ym=todayKey().slice(0,7);
+  el.textContent='TODO（'+parseInt(ym.slice(0,4))+'年'+parseInt(ym.slice(5))+'月）';
+  const all=Object.entries(DB.todos||{});
+  const open=all.filter(([,t])=>!t.done).sort((a,b)=>a[1].u-b[1].u);
+  const doneThis=all.filter(([,t])=>t.done&&t.done.slice(0,7)===ym).sort((a,b)=>b[1].u-a[1].u);
+  const o=document.getElementById('todoOpen'); o.innerHTML='';
+  if(!open.length) o.innerHTML='<div class="small">未完了タスクなし。身軽です。</div>';
+  open.forEach(([id,it])=>o.appendChild(todoRow(id,it,ym)));
+  document.getElementById('todoDoneTitle').textContent=doneThis.length?('今月完了 '+doneThis.length+'件'):'';
+  const dn=document.getElementById('todoDone'); dn.innerHTML='';
+  doneThis.forEach(([id,it])=>dn.appendChild(todoRow(id,it,ym)));
+  const arch={};
+  all.forEach(([id,t])=>{ if(t.done){ const m=t.done.slice(0,7); if(m<ym){ (arch[m]=arch[m]||[]).push([id,t]); } } });
+  const ael=document.getElementById('todoArchive'); ael.innerHTML='';
+  const months=Object.keys(arch).sort().reverse();
+  if(!months.length){ ael.textContent='まだありません（月が替わると完了分がここに残ります）'; }
+  months.forEach(m=>{
+    const det=document.createElement('details'); det.className='arch';
+    det.innerHTML='<summary>'+parseInt(m.slice(0,4))+'年'+parseInt(m.slice(5))+'月 — 完了 '+arch[m].length+'件</summary>';
+    arch[m].sort((a,b)=>b[1].u-a[1].u).forEach(([id,it])=>det.appendChild(todoRow(id,it,ym)));
+    ael.appendChild(det);
+  });
+}
+
 // ================= misc =================
-function renderAll(){ renderToday(); renderWeek(); renderCal(); if(selKey) renderEditor(selKey); renderStats(); }
+function renderAll(){ renderToday(); renderWeek(); renderCal(); if(selKey) renderEditor(selKey); renderStats(); renderTodo(); }
 function showPage(p){
   document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));
   document.getElementById('page-'+p).classList.add('on');
@@ -803,6 +886,7 @@ function showPage(p){
   if(p==='week') renderWeek();
   if(p==='cal') renderCal();
   if(p==='stats') renderStats();
+  if(p==='todo') renderTodo();
   window.scrollTo(0,0);
 }
 function toggleZaiseki(){ DB.settings.zaiseki=!DB.settings.zaiseki; DB.settings.zu=Date.now(); save(); renderToday(); }
@@ -826,6 +910,7 @@ document.getElementById('clock').textContent=new Date().toLocaleTimeString('ja-J
 // boot
 initCal();
 renderAll();
+document.getElementById('todoInput').addEventListener('keydown',e=>{ if(e.key==='Enter') addTodo(); });
 // Web公開版: 同期設定は「原則」タブで各端末1回だけ入力(保存されます)
 const cfg=syncCfg();
 if(cfg){ document.getElementById('cfgDb').value=cfg.db; document.getElementById('cfgCode').value=cfg.code;
