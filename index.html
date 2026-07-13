@@ -152,6 +152,8 @@ th{color:var(--sub); font-weight:600;}
 .titem .tx{flex:1;}
 .titem.done .tx{color:var(--sub); text-decoration:line-through; text-decoration-color:var(--dim);}
 .ttag{font-size:10px; color:var(--blue); border:1px solid var(--blue); border-radius:6px; padding:0 5px; flex:none;}
+.tbtn{border:none; background:none; color:var(--sub); font-size:13px; padding:3px 4px; cursor:pointer; flex:none; line-height:1;}
+.tbtn:active{color:var(--accent);}
 details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:600; font-size:13px; color:var(--ink);}
 </style>
 </head>
@@ -853,31 +855,56 @@ function escT(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
 function addTodo(){
   const inp=document.getElementById('todoInput'); const t=inp.value.trim(); if(!t) return;
   const id='t'+Date.now()+Math.random().toString(36).slice(2,6);
-  DB.todos[id]={text:t, created:todayKey().slice(0,7), done:null, u:Date.now()};
+  const mo=Math.max(0,...Object.values(DB.todos).filter(x=>!x.done&&!x.del).map(x=>x.ord||0));
+  DB.todos[id]={text:t, created:todayKey().slice(0,7), done:null, u:Date.now(), ord:mo+1};
   inp.value=''; save(); renderTodo();
 }
-function toggleTodo(id){ const it=DB.todos[id]; if(!it) return;
-  it.done=it.done?null:todayKey(); it.u=Date.now(); save(); renderTodo(); }
-function todoRow(id,it,ym){
+function toggleTodo(id){ const it=DB.todos[id]; if(!it||it.del) return;
+  it.done=it.done?null:todayKey();
+  if(!it.done){ const mo=Math.max(0,...Object.values(DB.todos).filter(x=>!x.done&&!x.del).map(x=>x.ord||0)); it.ord=mo+1; }
+  it.u=Date.now(); save(); renderTodo(); }
+function editTodo(id){ const it=DB.todos[id]; if(!it||it.del) return;
+  const t=prompt('タスクを編集', it.text); if(t===null) return;
+  const v=t.trim(); if(!v) return;
+  it.text=v; it.u=Date.now(); save(); renderTodo(); }
+function delTodo(id){ const it=DB.todos[id]; if(!it) return;
+  if(!confirm('「'+it.text+'」を削除しますか？（アーカイブからも消えます）')) return;
+  it.del=1; it.u=Date.now(); save(); renderTodo(); toast('削除しました'); }
+function moveTodo(id,dir){
+  const list=Object.entries(DB.todos||{}).filter(([,t])=>!t.done&&!t.del)
+    .sort((a,b)=>((a[1].ord!=null?a[1].ord:a[1].u))-((b[1].ord!=null?b[1].ord:b[1].u)));
+  const i=list.findIndex(([k])=>k===id); if(i<0) return;
+  const j=i+dir; if(j<0||j>=list.length) return;
+  list.forEach(([k,t],idx)=>{ t.ord=idx+1; });
+  const a=list[i][1], b=list[j][1];
+  const tmp=a.ord; a.ord=b.ord; b.ord=tmp;
+  a.u=Date.now(); b.u=Date.now();
+  save(); renderTodo();
+}
+function todoRow(id,it,ym,ctx){
   const el=document.createElement('div'); el.className='titem'+(it.done?' done':'');
   const carry=(!it.done && it.created && it.created<ym)?'<span class="ttag">'+parseInt(it.created.slice(5))+'月〜</span>':'';
-  el.innerHTML='<div class="tbox">'+(it.done?'✓':'')+'</div><div class="tx">'+escT(it.text)+'</div>'+carry;
-  el.onclick=()=>toggleTodo(id);
+  let btns='<button class="tbtn" onclick="delTodo(\''+id+'\')" title="削除">🗑</button>';
+  if(ctx==='open') btns='<button class="tbtn" onclick="moveTodo(\''+id+'\',-1)" title="上へ">▲</button>'+
+    '<button class="tbtn" onclick="moveTodo(\''+id+'\',1)" title="下へ">▼</button>'+
+    '<button class="tbtn" onclick="editTodo(\''+id+'\')" title="編集">✎</button>'+btns;
+  el.innerHTML='<div class="tbox" onclick="toggleTodo(\''+id+'\')">'+(it.done?'✓':'')+'</div>'+
+    '<div class="tx" onclick="toggleTodo(\''+id+'\')">'+escT(it.text)+'</div>'+carry+btns;
   return el;
 }
 function renderTodo(){
   const el=document.getElementById('todoTitle'); if(!el) return;
   const ym=todayKey().slice(0,7);
   el.textContent='TODO（'+parseInt(ym.slice(0,4))+'年'+parseInt(ym.slice(5))+'月）';
-  const all=Object.entries(DB.todos||{});
-  const open=all.filter(([,t])=>!t.done).sort((a,b)=>a[1].u-b[1].u);
+  const all=Object.entries(DB.todos||{}).filter(([,t])=>!t.del);
+  const open=all.filter(([,t])=>!t.done).sort((a,b)=>((a[1].ord!=null?a[1].ord:a[1].u))-((b[1].ord!=null?b[1].ord:b[1].u)));
   const doneThis=all.filter(([,t])=>t.done&&t.done.slice(0,7)===ym).sort((a,b)=>b[1].u-a[1].u);
   const o=document.getElementById('todoOpen'); o.innerHTML='';
   if(!open.length) o.innerHTML='<div class="small">未完了タスクなし。身軽です。</div>';
-  open.forEach(([id,it])=>o.appendChild(todoRow(id,it,ym)));
+  open.forEach(([id,it])=>o.appendChild(todoRow(id,it,ym,'open')));
   document.getElementById('todoDoneTitle').textContent=doneThis.length?('今月完了 '+doneThis.length+'件'):'';
   const dn=document.getElementById('todoDone'); dn.innerHTML='';
-  doneThis.forEach(([id,it])=>dn.appendChild(todoRow(id,it,ym)));
+  doneThis.forEach(([id,it])=>dn.appendChild(todoRow(id,it,ym,'done')));
   const arch={};
   all.forEach(([id,t])=>{ if(t.done){ const m=t.done.slice(0,7); if(m<ym){ (arch[m]=arch[m]||[]).push([id,t]); } } });
   const ael=document.getElementById('todoArchive'); ael.innerHTML='';
@@ -886,7 +913,7 @@ function renderTodo(){
   months.forEach(m=>{
     const det=document.createElement('details'); det.className='arch';
     det.innerHTML='<summary>'+parseInt(m.slice(0,4))+'年'+parseInt(m.slice(5))+'月 — 完了 '+arch[m].length+'件</summary>';
-    arch[m].sort((a,b)=>b[1].u-a[1].u).forEach(([id,it])=>det.appendChild(todoRow(id,it,ym)));
+    arch[m].sort((a,b)=>b[1].u-a[1].u).forEach(([id,it])=>det.appendChild(todoRow(id,it,ym,'done')));
     ael.appendChild(det);
   });
 }
