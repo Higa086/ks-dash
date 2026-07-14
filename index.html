@@ -256,7 +256,7 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <div id="todoOpen" style="margin-top:10px"></div>
     <div class="small" id="todoDoneTitle" style="margin-top:14px"></div>
     <div id="todoDone"></div>
-    <div class="small" style="margin-top:10px">□タップで完了（下にスライド）・文字タップで編集・左の⠿をつかんでドラッグで並べ替え・×で削除。月が替わると未完了は持ち越し、完了分はアーカイブへ。</div>
+    <div class="small" style="margin-top:10px">□タップで完了（下にスライド）・文字タップで編集（全部消すと削除）・右端の⠿をドラッグで並べ替え。月が替わると未完了は持ち越し、完了分はアーカイブへ。</div>
   </div>
   <div class="card">
     <h2>月別アーカイブ（完了タスク）</h2>
@@ -867,8 +867,9 @@ function toggleTodo(id){ if(Date.now()-(window._jd||0)<400) return; const it=DB.
   if(!it.done){ const mo=Math.max(0,...Object.values(DB.todos).filter(x=>!x.done&&!x.del).map(x=>x.ord||0)); it.ord=mo+1; }
   it.u=Date.now(); save(); renderTodo(); }
 function editTodo(id){ if(Date.now()-(window._jd||0)<400) return; const it=DB.todos[id]; if(!it||it.del) return;
-  const t=prompt('タスクを編集', it.text); if(t===null) return;
-  const v=t.trim(); if(!v) return;
+  const t=prompt('タスクを編集（全部消してOKで削除）', it.text); if(t===null) return;
+  const v=t.trim();
+  if(!v){ if(confirm('「'+it.text+'」を削除しますか？')){ it.del=1; it.u=Date.now(); save(); renderTodo(); toast('削除しました'); } return; }
   it.text=v; it.u=Date.now(); save(); renderTodo(); }
 function delTodo(id){ const it=DB.todos[id]; if(!it) return;
   if(!confirm('「'+it.text+'」を削除しますか？（アーカイブからも消えます）')) return;
@@ -888,10 +889,8 @@ function todoRow(id,it,ym,ctx){
   const el=document.createElement('div'); el.className='titem'+(it.done?' done':''); el.dataset.id=id;
   const carry=(!it.done && it.created && it.created<ym)?'<span class="ttag">'+parseInt(it.created.slice(5))+'月〜</span>':'';
   const handle=(ctx==='open')?'<div class="thandle" title="ドラッグで並べ替え">⠿</div>':'';
-  const tx=(ctx==='open')?'<div class="tx" onclick="editTodo(\''+id+'\')" title="タップで編集">'+escT(it.text)+'</div>'
-                         :'<div class="tx">'+escT(it.text)+'</div>';
-  el.innerHTML=handle+'<div class="tbox" onclick="toggleTodo(\''+id+'\')">'+(it.done?'✓':'')+'</div>'+tx+carry+
-    '<button class="tbtn" style="font-size:16px" onclick="delTodo(\''+id+'\')" title="削除">×</button>';
+  el.innerHTML='<div class="tbox" onclick="toggleTodo(\''+id+'\')">'+(it.done?'✓':'')+'</div>'+
+    '<div class="tx" onclick="editTodo(\''+id+'\')" title="タップで編集">'+escT(it.text)+'</div>'+carry+handle;
   if(ctx==='open') bindDrag(el);
   return el;
 }
