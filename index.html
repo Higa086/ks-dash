@@ -246,6 +246,7 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     </div>
     <div class="small">体調 (1-5)</div>
     <div class="modes" id="editTaicho"></div>
+    <div class="small" id="editWork" style="margin-top:8px"></div>
     <div class="small">メモ</div>
     <textarea id="editMemo" rows="2" placeholder="この日のメモ" onchange="saveEditMemo()"></textarea>
   </div>
@@ -659,6 +660,7 @@ function saveNeta(){ DB.notes={t:document.getElementById('netaMemo').value, u:Da
 function chgPages(n){ const d=day(); d.pages=Math.max(0,(d.pages||0)+n); if(n>0&&!d.checks.manga)d.checks.manga=true; touch(d); save(); renderAll(); }
 function chgKotowari(n){ const d=day(); d.kotowari=Math.max(0,(d.kotowari||0)+n); if(n>0) toast('よく断った。引き受け筋の筋肉痛はすぐ軽くなる。'); touch(d); save(); renderToday(); }
 function fmtDur(ms){ const m=Math.round(ms/60000); if(m<60) return m+'分'; return Math.floor(m/60)+'時間'+(m%60?(m%60)+'分':''); }
+function fmtH(ms){ const m=Math.round(ms/60000); if(m<=0) return ''; if(m<60) return m+'m'; return (Math.round(m/6)/10)+'h'; }
 function workCalc(ev, now){
   now=now||Date.now();
   let workMs=0, breakMs=0, curStart=null, curBreak=null, st='idle';
@@ -702,16 +704,22 @@ function renderCal(){
   ['月','火','水','木','金','土','日'].forEach(w=>{ const e=document.createElement('div'); e.className='wd'; e.textContent=w; grid.appendChild(e); });
   const first=new Date(calY,calM,1); const blanks=(first.getDay()+6)%7;
   const daysIn=new Date(calY,calM+1,0).getDate();
-  const tk=todayKey(); let workD=0, totP=0;
+  const tk=todayKey(); let workD=0, totP=0, totW=0;
   for(let i=0;i<blanks;i++){ const e=document.createElement('div'); e.className='cell blank'; grid.appendChild(e); }
   for(let dd=1;dd<=daysIn;dd++){
     const k=calY+'-'+String(calM+1).padStart(2,'0')+'-'+String(dd).padStart(2,'0');
     const rec=DB.days[k];
     const e=document.createElement('div'); let cls='cell';
+    let wms=0;
     if(rec){
       if(rec.checks&&rec.checks.manga){ cls+=' work'; workD++; }
       else if(isRest(rec.mode)) cls+=' rest';
       totP+=rec.pages||0;
+      if(rec.work&&rec.work.ev&&rec.work.ev.length){
+        const evs=rec.work.ev;
+        wms=workCalc(evs, k===tk?Date.now():evs[evs.length-1][1]).workMs;
+        totW+=wms;
+      }
     }
     if(k===tk) cls+=' today';
     if(k>tk) cls+=' future';
@@ -724,13 +732,16 @@ function renderCal(){
       const bc=pct>=100?'#7c3aed':pct>=67?'#7cb342':pct>=34?'#e0a52d':'#cf5045';
       rbar='<div class="rbar" title="ルーティン '+done+'/'+ITEMS.length+'"><div style="width:'+pct+'%; background:'+bc+'"></div></div>';
     }
-    e.innerHTML='<div>'+dd+'</div>'+(rec&&rec.pages?'<div class="pg">'+rec.pages+'P</div>':'')+
+    const subs=[];
+    if(rec&&rec.pages) subs.push(rec.pages+'P');
+    if(wms) subs.push(fmtH(wms));
+    e.innerHTML='<div>'+dd+'</div>'+(subs.length?'<div class="pg">'+subs.join('·')+'</div>':'')+
       (rec&&rec.memo?'<div class="mk">✎</div>':'')+rbar;
     e.onclick=()=>{ selKey=k; renderCal(); renderEditor(k); };
     grid.appendChild(e);
   }
   const goal=DB.settings.mGoal||70;
-  document.getElementById('calSummary').textContent='この月: 制作 '+workD+'日 / 本編 '+totP+'P / 目標'+goal+'P ('+Math.min(999,Math.round(totP/goal*100))+'%)';
+  document.getElementById('calSummary').textContent='この月: 制作 '+workD+'日 / 本編 '+totP+'P / 実働 '+(fmtH(totW)||'0m')+' / 目標'+goal+'P ('+Math.min(999,Math.round(totP/goal*100))+'%)';
   document.getElementById('mGoal').value=goal;
   document.getElementById('monthBar').style.width=Math.min(100,totP/goal*100)+'%';
 }
@@ -764,6 +775,13 @@ function renderEditor(k){
     c.onclick=()=>{ const r=day(k); r.taicho=(r.taicho===i?0:i); touch(r); save(); renderEditor(k); };
     et.appendChild(c);
   }
+  let ew='記録なし';
+  if(rec.work&&rec.work.ev&&rec.work.ev.length){
+    const evs=rec.work.ev;
+    const wc=workCalc(evs, k===todayKey()?Date.now():evs[evs.length-1][1]);
+    ew='実働 '+fmtDur(wc.workMs)+'・休憩 '+fmtDur(wc.breakMs);
+  }
+  document.getElementById('editWork').textContent='勤務: '+ew;
 }
 function editPages(n){ if(!selKey)return; const r=day(selKey); r.pages=Math.max(0,(r.pages||0)+n); if(n>0&&!r.checks.manga)r.checks.manga=true; touch(r); save(); renderCal(); renderEditor(selKey); renderAll(); }
 function saveEditMemo(){ if(!selKey)return; const r=day(selKey); r.memo=document.getElementById('editMemo').value; touch(r); save(); renderCal(); }
@@ -785,12 +803,15 @@ function renderWeek(){
       pages+=rec.pages||0;
     }
     if(isToday) cls+=' today';
+    let dayMs=0;
     if(rec&&rec.work&&rec.work.ev&&rec.work.ev.length){
       const evs=rec.work.ev;
-      wwork+=workCalc(evs, isToday?Date.now():evs[evs.length-1][1]).workMs;
+      dayMs=workCalc(evs, isToday?Date.now():evs[evs.length-1][1]).workMs;
+      wwork+=dayMs;
     }
     const el=document.createElement('div'); el.className=cls;
-    el.innerHTML='<div class="c">'+mark+'</div><div class="d">'+names[i]+' '+dt.getDate()+'</div>';
+    el.innerHTML='<div class="c">'+mark+'</div><div class="d">'+names[i]+' '+dt.getDate()+'</div>'+
+      '<div class="d" style="color:var(--accent); font-weight:700">'+(dayMs?fmtH(dayMs):'&nbsp;')+'</div>';
     dots.appendChild(el);
   }
   document.getElementById('weekWork').textContent=fmtDur(wwork);
