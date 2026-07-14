@@ -174,6 +174,12 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <h2>今日のモード宣言 <span class="small">(宣言した休みはサボりではなく計画)</span></h2>
     <div class="modes" id="modeChips"></div>
   </div>
+  <div class="card">
+    <h2>勤務レポート</h2>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;" id="workBtns"></div>
+    <div style="margin-top:8px"><b id="workStatus">未開始</b></div>
+    <div class="small" id="workSummary"></div>
+  </div>
   <div class="victory" id="victoryBox"></div>
   <div class="principle" id="principleBox"></div>
   <div id="reopenBanner"></div>
@@ -299,6 +305,8 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <div class="bar"><div id="workBar" style="width:0%"></div></div>
     <div style="margin-top:10px"><b id="weekPages">0</b><span class="small"> / 20P（本編期の目標）</span></div>
     <div class="bar"><div id="pageBar" style="width:0%; background:var(--blue)"></div></div>
+    <div style="margin-top:10px"><b id="weekWork">0分</b><span class="small"> 実働（専業目標 週33h）</span></div>
+    <div class="bar"><div id="workWeekBar" style="width:0%; background:var(--accent)"></div></div>
   </div>
   <div class="card">
     <h2>週次振り返り（日曜15分）— 反省会ではなく「来週の一手」を決める場</h2>
@@ -645,10 +653,42 @@ function renderToday(){
     d.taicho ? (d.taicho<=2?'低め。目標は半分に。予備日を先に使う。':'記録済み。寝る前に変わったら更新でOK。') : '1タップだけ。寝る前でもOK。';
   const na=document.getElementById('netaMemo');
   if(na && document.activeElement!==na) na.value=(DB.notes&&DB.notes.t)||'';
+  renderWork(d);
 }
 function saveNeta(){ DB.notes={t:document.getElementById('netaMemo').value, u:Date.now()}; save(); }
 function chgPages(n){ const d=day(); d.pages=Math.max(0,(d.pages||0)+n); if(n>0&&!d.checks.manga)d.checks.manga=true; touch(d); save(); renderAll(); }
 function chgKotowari(n){ const d=day(); d.kotowari=Math.max(0,(d.kotowari||0)+n); if(n>0) toast('よく断った。引き受け筋の筋肉痛はすぐ軽くなる。'); touch(d); save(); renderToday(); }
+function fmtDur(ms){ const m=Math.round(ms/60000); if(m<60) return m+'分'; return Math.floor(m/60)+'時間'+(m%60?(m%60)+'分':''); }
+function workCalc(ev, now){
+  now=now||Date.now();
+  let workMs=0, breakMs=0, curStart=null, curBreak=null, st='idle';
+  (ev||[]).forEach(([t,at])=>{
+    if(t==='start'||t==='resume'){ if(curBreak!=null){breakMs+=at-curBreak; curBreak=null;} if(curStart==null) curStart=at; st='working'; }
+    if(t==='break'){ if(curStart!=null){workMs+=at-curStart; curStart=null;} curBreak=at; st='break'; }
+    if(t==='end'){ if(curStart!=null){workMs+=at-curStart; curStart=null;} if(curBreak!=null){breakMs+=at-curBreak; curBreak=null;} st='done'; }
+  });
+  if(st==='working'&&curStart!=null) workMs+=now-curStart;
+  if(st==='break'&&curBreak!=null) breakMs+=now-curBreak;
+  if(!(ev||[]).length) st='idle';
+  return {workMs,breakMs,st};
+}
+function workAdd(type){ const d=day(); if(!d.work) d.work={ev:[]};
+  d.work.ev.push([type,Date.now()]); touch(d); save(); renderToday(); renderWeek();
+  toast({start:'業務開始。いってらっしゃい。',break:'休憩へ。ちゃんと休むのも仕事。',resume:'再開。おかえりなさい。',end:'業務終了。お疲れさまでした。'}[type]); }
+function renderWork(d){
+  const wb=document.getElementById('workBtns'); if(!wb) return;
+  const ev=(d.work&&d.work.ev)||[];
+  const wc=workCalc(ev);
+  wb.innerHTML='';
+  const mk=(label,type,ghost)=>{ const b=document.createElement('button'); b.className='btn'+(ghost?' ghost':'');
+    b.style.marginTop='0'; b.style.padding='8px 14px'; b.textContent=label; b.onclick=()=>workAdd(type); wb.appendChild(b); };
+  if(wc.st==='idle'){ mk('業務開始','start'); }
+  else if(wc.st==='working'){ mk('休憩に入る','break',true); mk('業務終了','end'); }
+  else if(wc.st==='break'){ mk('業務再開','resume'); mk('業務終了','end',true); }
+  else { mk('もう一度再開','resume',true); }
+  document.getElementById('workStatus').textContent={idle:'未開始',working:'🟢 勤務中',break:'☕ 休憩中',done:'✅ 本日終了'}[wc.st];
+  document.getElementById('workSummary').textContent= ev.length?('実働 '+fmtDur(wc.workMs)+'・休憩 '+fmtDur(wc.breakMs)):'開始ボタンで記録スタート（漫画でも副業でも）';
+}
 function saveTodayMemo(){ const d=day(); d.memo=document.getElementById('todayMemo').value; touch(d); save(); renderCal(); }
 
 // ================= render: calendar =================
@@ -733,7 +773,7 @@ function renderWeek(){
   const wk=weekKey(); const start=new Date(wk);
   const names=['月','火','水','木','金','土','日'];
   const dots=document.getElementById('weekDots'); dots.innerHTML='';
-  let workDays=0, pages=0;
+  let workDays=0, pages=0, wwork=0;
   for(let i=0;i<7;i++){
     const dt=new Date(start); dt.setDate(start.getDate()+i);
     const k=todayKey(dt); const rec=DB.days[k];
@@ -745,10 +785,16 @@ function renderWeek(){
       pages+=rec.pages||0;
     }
     if(isToday) cls+=' today';
+    if(rec&&rec.work&&rec.work.ev&&rec.work.ev.length){
+      const evs=rec.work.ev;
+      wwork+=workCalc(evs, isToday?Date.now():evs[evs.length-1][1]).workMs;
+    }
     const el=document.createElement('div'); el.className=cls;
     el.innerHTML='<div class="c">'+mark+'</div><div class="d">'+names[i]+' '+dt.getDate()+'</div>';
     dots.appendChild(el);
   }
+  document.getElementById('weekWork').textContent=fmtDur(wwork);
+  document.getElementById('workWeekBar').style.width=Math.min(100,wwork/(33*3600000)*100)+'%';
   document.getElementById('weekTitle').textContent='今週（'+(start.getMonth()+1)+'/'+start.getDate()+'〜）';
   document.getElementById('workDays').textContent=workDays;
   document.getElementById('workBar').style.width=Math.min(100,workDays/5*100)+'%';
