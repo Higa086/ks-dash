@@ -291,6 +291,18 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <div class="mchart" id="mChart"></div>
   </div>
   <div class="card">
+    <h2>実働時間（直近30日）</h2>
+    <div class="mchart" id="wChart30" style="gap:2px; height:80px"></div>
+    <h2 style="margin-top:16px">週ごと（直近8週・週開始日）</h2>
+    <div class="mchart" id="wChartW"></div>
+    <h2 style="margin-top:16px">月ごと（直近6ヶ月）</h2>
+    <div class="mchart" id="wChartM"></div>
+  </div>
+  <div class="card">
+    <h2>勤務ログ（直近14日）</h2>
+    <table id="workLog"></table>
+  </div>
+  <div class="card">
     <h2>体調</h2>
     <div class="small">直近7日の平均: <b id="stTaicho" style="font-size:18px">—</b> / 5</div>
     <div class="small" id="stTaichoNote" style="margin-top:4px"></div>
@@ -660,6 +672,7 @@ function saveNeta(){ DB.notes={t:document.getElementById('netaMemo').value, u:Da
 function chgPages(n){ const d=day(); d.pages=Math.max(0,(d.pages||0)+n); if(n>0&&!d.checks.manga)d.checks.manga=true; touch(d); save(); renderAll(); }
 function chgKotowari(n){ const d=day(); d.kotowari=Math.max(0,(d.kotowari||0)+n); if(n>0) toast('よく断った。引き受け筋の筋肉痛はすぐ軽くなる。'); touch(d); save(); renderToday(); }
 function fmtDur(ms){ const m=Math.round(ms/60000); if(m<60) return m+'分'; return Math.floor(m/60)+'時間'+(m%60?(m%60)+'分':''); }
+function fmtTime(ts){ const d=new Date(ts); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
 function fmtH(ms){ const m=Math.round(ms/60000); if(m<=0) return ''; if(m<60) return m+'m'; return (Math.round(m/6)/10)+'h'; }
 function workCalc(ev, now){
   now=now||Date.now();
@@ -912,6 +925,68 @@ function renderStats(){
     el.innerHTML='<div class="mv">'+(sums[i]||'')+'</div><div class="bararea"><div style="height:'+Math.round(sums[i]/mx*100)+'%"></div></div><div class="ml">'+parseInt(m.slice(5))+'月</div>';
     mc.appendChild(el);
   });
+  // work time stats
+  const dayMsOf=(k)=>{ const rec=DB.days[k]; if(!(rec&&rec.work&&rec.work.ev&&rec.work.ev.length)) return 0;
+    const evs=rec.work.ev; return workCalc(evs, k===tk?Date.now():evs[evs.length-1][1]).workMs; };
+  const c30=document.getElementById('wChart30');
+  if(c30){
+    const wdays=[];
+    for(let i=29;i>=0;i--){ const dt=new Date(); dt.setDate(dt.getDate()-i); wdays.push({dt:new Date(dt), ms:dayMsOf(todayKey(dt))}); }
+    c30.innerHTML='';
+    const mx=Math.max(3600000,...wdays.map(x=>x.ms));
+    wdays.forEach((x,i)=>{
+      const el=document.createElement('div'); el.className='mb';
+      el.innerHTML='<div class="bararea"><div style="height:'+Math.round(x.ms/mx*100)+'%; background:var(--accent)" title="'+(x.dt.getMonth()+1)+'/'+x.dt.getDate()+' '+(fmtH(x.ms)||'0')+'"></div></div>'+
+        '<div class="ml">'+((x.dt.getDay()===1||i===29)?(x.dt.getMonth()+1)+'/'+x.dt.getDate():'')+'</div>';
+      c30.appendChild(el);
+    });
+  }
+  const cw=document.getElementById('wChartW');
+  if(cw){
+    const wks=[]; const curWk=new Date(weekKey());
+    for(let i=7;i>=0;i--){
+      const ws=new Date(curWk); ws.setDate(curWk.getDate()-7*i);
+      let sum=0;
+      for(let j=0;j<7;j++){ const dt=new Date(ws); dt.setDate(ws.getDate()+j); sum+=dayMsOf(todayKey(dt)); }
+      wks.push({ws,sum});
+    }
+    cw.innerHTML='';
+    const mxw=Math.max(3600000,...wks.map(x=>x.sum));
+    wks.forEach(x=>{
+      const el=document.createElement('div'); el.className='mb';
+      el.innerHTML='<div class="mv">'+(fmtH(x.sum)||'')+'</div><div class="bararea"><div style="height:'+Math.round(x.sum/mxw*100)+'%; background:var(--accent)"></div></div><div class="ml">'+(x.ws.getMonth()+1)+'/'+x.ws.getDate()+'</div>';
+      cw.appendChild(el);
+    });
+  }
+  const cm2=document.getElementById('wChartM');
+  if(cm2){
+    cm2.innerHTML='';
+    const wsums=months.map(m=>keys.filter(k=>k.slice(0,7)===m).reduce((s,k)=>s+dayMsOf(k),0));
+    const mxm=Math.max(3600000,...wsums);
+    months.forEach((m,i)=>{
+      const el=document.createElement('div'); el.className='mb';
+      el.innerHTML='<div class="mv">'+(fmtH(wsums[i])||'')+'</div><div class="bararea"><div style="height:'+Math.round(wsums[i]/mxm*100)+'%; background:var(--accent)"></div></div><div class="ml">'+parseInt(m.slice(5))+'月</div>';
+      cm2.appendChild(el);
+    });
+  }
+  const lg=document.getElementById('workLog');
+  if(lg){
+    lg.innerHTML='<tr><th>日付</th><th>開始</th><th>終了</th><th>休憩</th><th>実働</th></tr>';
+    let found=0;
+    for(let i=0;i<14;i++){
+      const dt=new Date(); dt.setDate(dt.getDate()-i); const k=todayKey(dt);
+      const rec=DB.days[k]; if(!(rec&&rec.work&&rec.work.ev&&rec.work.ev.length)) continue;
+      const evs=rec.work.ev;
+      const wc=workCalc(evs, k===tk?Date.now():evs[evs.length-1][1]);
+      const first=evs[0][1];
+      let endTs=null; evs.forEach(([t,at])=>{ if(t==='end') endTs=at; });
+      const endTxt= wc.st==='working'?'🟢勤務中': wc.st==='break'?'☕休憩中': endTs?fmtTime(endTs):'—';
+      const tr=document.createElement('tr');
+      tr.innerHTML='<td>'+(dt.getMonth()+1)+'/'+dt.getDate()+'</td><td>'+fmtTime(first)+'</td><td>'+endTxt+'</td><td>'+(fmtH(wc.breakMs)||'0')+'</td><td><b>'+(fmtH(wc.workMs)||'0')+'</b></td>';
+      lg.appendChild(tr); found++;
+    }
+    if(!found){ const tr=document.createElement('tr'); tr.innerHTML='<td colspan="5" class="small">まだ記録がありません（今日タブの「業務開始」から）</td>'; lg.appendChild(tr); }
+  }
   // taicho avg last 7 days
   let ts=0, tc=0;
   for(let i=0;i<7;i++){
