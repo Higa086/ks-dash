@@ -145,7 +145,9 @@ th{color:var(--sub); font-weight:600;}
 .statgrid{display:grid; grid-template-columns:1fr 1fr; gap:8px; text-align:center;}
 .statgrid .card2{background:var(--bg); border-radius:12px; padding:10px 6px; border:1px solid var(--line);}
 /* todo */
-.titem{display:flex; align-items:center; gap:9px; padding:7px 2px; border-bottom:1px solid var(--line); cursor:pointer; user-select:none; font-size:13px; touch-action:pan-y;}
+.titem{display:flex; align-items:center; gap:8px; padding:7px 2px; border-bottom:1px solid var(--line); user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; font-size:13px;}
+.thandle{color:var(--dim); font-size:15px; padding:4px 3px; cursor:grab; flex:none; touch-action:none; user-select:none; -webkit-user-select:none;}
+.thandle:active{cursor:grabbing; color:var(--accent);}
 .titem.dragging{opacity:.92; background:var(--accent-soft); border-radius:10px; box-shadow:0 4px 14px rgba(0,0,0,.18); position:relative; z-index:5;}
 .titem:last-child{border-bottom:none;}
 .tbox{width:20px; height:20px; border-radius:6px; border:2px solid var(--dim); flex:none; display:flex; align-items:center; justify-content:center; font-size:13px; color:#fff;}
@@ -254,7 +256,7 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <div id="todoOpen" style="margin-top:10px"></div>
     <div class="small" id="todoDoneTitle" style="margin-top:14px"></div>
     <div id="todoDone"></div>
-    <div class="small" style="margin-top:10px">□タップで完了（下にスライド）・文字タップで編集・長押しドラッグで並べ替え・×で削除。月が替わると未完了は持ち越し、完了分はアーカイブへ。</div>
+    <div class="small" style="margin-top:10px">□タップで完了（下にスライド）・文字タップで編集・左の⠿をつかんでドラッグで並べ替え・×で削除。月が替わると未完了は持ち越し、完了分はアーカイブへ。</div>
   </div>
   <div class="card">
     <h2>月別アーカイブ（完了タスク）</h2>
@@ -885,56 +887,45 @@ function moveTodo(id,dir){
 function todoRow(id,it,ym,ctx){
   const el=document.createElement('div'); el.className='titem'+(it.done?' done':''); el.dataset.id=id;
   const carry=(!it.done && it.created && it.created<ym)?'<span class="ttag">'+parseInt(it.created.slice(5))+'月〜</span>':'';
+  const handle=(ctx==='open')?'<div class="thandle" title="ドラッグで並べ替え">⠿</div>':'';
   const tx=(ctx==='open')?'<div class="tx" onclick="editTodo(\''+id+'\')" title="タップで編集">'+escT(it.text)+'</div>'
                          :'<div class="tx">'+escT(it.text)+'</div>';
-  el.innerHTML='<div class="tbox" onclick="toggleTodo(\''+id+'\')">'+(it.done?'✓':'')+'</div>'+tx+carry+
+  el.innerHTML=handle+'<div class="tbox" onclick="toggleTodo(\''+id+'\')">'+(it.done?'✓':'')+'</div>'+tx+carry+
     '<button class="tbtn" style="font-size:16px" onclick="delTodo(\''+id+'\')" title="削除">×</button>';
   if(ctx==='open') bindDrag(el);
   return el;
 }
 let _touchBlock=null;
 function bindDrag(el){
-  el.addEventListener('pointerdown',e=>{
-    if(e.target.closest('.tbtn')||e.target.closest('.tbox')) return;
-    const sx=e.clientX, sy=e.clientY;
-    let pressed=true, dragging=false;
-    const timer=setTimeout(()=>{
-      if(!pressed) return;
-      dragging=true;
-      el.classList.add('dragging');
-      if(navigator.vibrate) navigator.vibrate(30);
-      _touchBlock=ev=>ev.preventDefault();
-      document.addEventListener('touchmove',_touchBlock,{passive:false});
-    },400);
+  const h=el.querySelector('.thandle'); if(!h) return;
+  h.addEventListener('pointerdown',e=>{
+    e.preventDefault();
+    el.classList.add('dragging');
+    if(navigator.vibrate) navigator.vibrate(20);
+    _touchBlock=ev=>ev.preventDefault();
+    document.addEventListener('touchmove',_touchBlock,{passive:false});
     const onMove=ev=>{
-      if(!dragging){
-        if(Math.abs(ev.clientY-sy)>12||Math.abs(ev.clientX-sx)>12){ pressed=false; clearTimeout(timer); end(); }
-        return;
-      }
       const container=el.parentNode; if(!container) return;
       const rows=[...container.querySelectorAll('.titem:not(.dragging)')];
       const after=rows.find(r=>ev.clientY < r.getBoundingClientRect().top + r.offsetHeight/2);
       if(after) container.insertBefore(el,after); else container.appendChild(el);
     };
     const end=()=>{
-      clearTimeout(timer); pressed=false;
       document.removeEventListener('pointermove',onMove);
       document.removeEventListener('pointerup',end);
       document.removeEventListener('pointercancel',end);
       if(_touchBlock){ document.removeEventListener('touchmove',_touchBlock); _touchBlock=null; }
-      if(dragging){
-        window._jd=Date.now();
-        el.classList.remove('dragging');
-        const container=el.parentNode;
-        if(container){
-          [...container.querySelectorAll('.titem')].forEach((r,idx)=>{
-            const tid=r.dataset.id;
-            if(tid&&DB.todos[tid]){ DB.todos[tid].ord=idx+1; DB.todos[tid].u=Date.now(); }
-          });
-          save();
-        }
-        renderTodo();
+      window._jd=Date.now();
+      el.classList.remove('dragging');
+      const container=el.parentNode;
+      if(container){
+        [...container.querySelectorAll('.titem')].forEach((r,idx)=>{
+          const tid=r.dataset.id;
+          if(tid&&DB.todos[tid]){ DB.todos[tid].ord=idx+1; DB.todos[tid].u=Date.now(); }
+        });
+        save();
       }
+      renderTodo();
     };
     document.addEventListener('pointermove',onMove);
     document.addEventListener('pointerup',end);
