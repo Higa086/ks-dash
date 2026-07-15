@@ -589,6 +589,12 @@ const PRINCIPLES=[
  '漫画は「なぜか稼ぐことのできる秘密の趣味」。実習科目ではない。',
  '週5日で合格。4日なら自分を責めず計画を直す。',
  'アイデア出しは散歩とセット。机の前で唸らない。',
+ '自分は意志ではなく、環境の切替で結果を出す人。',
+ 'ワクワクは意志ではなく設計で作る。報酬を朝一に置く。',
+ '夜に仕込んで、朝に開封する。',
+ 'キリの悪いところで止める。続きが翌朝の引力になる。',
+ 'ページが鍵、集客は褒美。',
+ '何時に起きても、最初のブロックは漫画。',
 ];
 function isRest(m){ return m==='off'||m==='sick'; }
 
@@ -608,8 +614,9 @@ function renderToday(){
   let v=VICTORY[d.mode];
   if(zaiseki && d.mode==='normal') v={t:'今日の勝利条件（在籍中）',d:'朝1h漫画（ネーム1コマでも○）+ 断る練習。「体調が読めないので、お約束できないです」+黙る。'};
   document.getElementById('victoryBox').innerHTML='<b>'+v.t+'</b>'+v.d;
-  const doy=Math.floor((now-new Date(now.getFullYear(),0,0))/86400000);
-  document.getElementById('principleBox').innerHTML='<span class="tag">今日の原則</span><br>'+PRINCIPLES[doy%PRINCIPLES.length];
+  const slot=Math.floor(Date.now()/14400000);
+  const pIdx=((slot%9973)*7919)%PRINCIPLES.length;
+  document.getElementById('principleBox').innerHTML='<span class="tag">今の原則（4時間ごとに入替）</span><br>'+PRINCIPLES[pIdx];
   const yk=todayKey(new Date(Date.now()-86400000));
   const yd=DB.days[yk];
   const banner=document.getElementById('reopenBanner');
