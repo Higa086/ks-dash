@@ -209,11 +209,6 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <div class="taicho" id="dayTaicho"></div>
     <div class="small" id="dayTaichoNote" style="margin-top:6px"></div>
   </div>
-  <div class="card">
-    <h2>ネタ帳（WIP・アイデアストック）</h2>
-    <textarea id="netaMemo" rows="4" placeholder="散歩中のひらめき、次作のネタ、WIP候補をここに書き溜める" oninput="saveNeta()" onchange="saveNeta()"></textarea>
-    <div class="small">全端末で同期。消えません。</div>
-  </div>
   <div class="card" id="tlCard">
     <h2>1日の型 <span class="small" id="tlNote"></span></h2>
     <div class="tl" id="timeline"></div>
@@ -287,10 +282,6 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     </div>
   </div>
   <div class="card">
-    <h2>習慣の達成率（直近30日）<span class="small">休み宣言日は未実施でも減点なし・実施分は加点</span></h2>
-    <div id="statRows"></div>
-  </div>
-  <div class="card">
     <h2>月別 本編ページ（直近6ヶ月）</h2>
     <div class="mchart" id="mChart"></div>
   </div>
@@ -304,9 +295,14 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
   </div>
   <div class="card">
     <h2>時間の使い方（カテゴリ別）</h2>
-    <div class="modes" id="catPeriodChips" style="margin-bottom:6px"></div>
-    <div id="catRows"></div>
-    <div class="small" id="mangaRate30" style="margin-top:8px"></div>
+    <div class="modes" id="catPeriodChips" style="margin-bottom:10px"></div>
+    <div class="mchart" id="catStack" style="height:120px"></div>
+    <div style="display:flex; gap:16px; align-items:center; margin-top:16px;">
+      <div id="catPie" style="width:118px; height:118px; border-radius:50%; flex:none; background:var(--line);"></div>
+      <div id="catLegend" style="flex:1; min-width:0;"></div>
+    </div>
+    <div id="catRows" style="margin-top:10px"></div>
+    <div class="small" id="mangaRate30" style="margin-top:6px"></div>
   </div>
   <div class="card">
     <h2>勤務ログ（直近14日）</h2>
@@ -316,6 +312,10 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <h2>体調</h2>
     <div class="small">直近7日の平均: <b id="stTaicho" style="font-size:18px">—</b> / 5</div>
     <div class="small" id="stTaichoNote" style="margin-top:4px"></div>
+  </div>
+  <div class="card">
+    <h2>習慣の達成率（直近30日）<span class="small">休み宣言日は未実施でも減点なし・実施分は加点</span></h2>
+    <div id="statRows"></div>
   </div>
 </div>
 
@@ -695,11 +695,8 @@ function renderToday(){
   }
   document.getElementById('dayTaichoNote').textContent =
     d.taicho ? (d.taicho<=2?'低め。目標は半分に。予備日を先に使う。':'記録済み。寝る前に変わったら更新でOK。') : '1タップだけ。寝る前でもOK。';
-  const na=document.getElementById('netaMemo');
-  if(na && document.activeElement!==na) na.value=(DB.notes&&DB.notes.t)||'';
   renderWork(d);
 }
-function saveNeta(){ DB.notes={t:document.getElementById('netaMemo').value, u:Date.now()}; save(); }
 function chgPages(n){ const d=day(); d.pages=Math.max(0,(d.pages||0)+n); if(n>0&&!d.checks.manga)d.checks.manga=true; touch(d); save(); renderAll(); }
 function chgKotowari(n){ const d=day(); d.kotowari=Math.max(0,(d.kotowari||0)+n); if(n>0) toast('よく断った。引き受け筋の筋肉痛はすぐ軽くなる。'); touch(d); save(); renderToday(); }
 function fmtDur(ms){ const m=Math.round(ms/60000); if(m<60) return m+'分'; return Math.floor(m/60)+'時間'+(m%60?(m%60)+'分':''); }
@@ -993,6 +990,33 @@ function catSums(period){
   else { for(let i=0;i<30;i++){ const d=new Date(); d.setDate(d.getDate()-i); addDay(todayKey(d)); } }
   return {sums:sums, tot:tot};
 }
+function catDays(period){
+  const out=[];
+  const push=(k,label)=>{ const cc=catCalc(DB.days[k],k); out.push({label:label, perCat:cc.perCat, total:cc.total}); };
+  if(period==='week'){
+    const s=new Date(weekKey()); const names=['月','火','水','木','金','土','日'];
+    for(let i=0;i<7;i++){ const d=new Date(s); d.setDate(s.getDate()+i); push(todayKey(d), names[i]); }
+  } else if(period==='month'){
+    const now=new Date(); const days=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
+    for(let i=1;i<=days;i++){ push(todayKey(new Date(now.getFullYear(),now.getMonth(),i)), (i===1||i%5===0)?String(i):''); }
+  } else if(period==='30d'){
+    for(let i=29;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i);
+      push(todayKey(d), (d.getDay()===1||i===0)?(d.getMonth()+1)+'/'+d.getDate():''); }
+  } else {
+    const now=new Date();
+    for(let i=5;i>=0;i--){
+      const d=new Date(now.getFullYear(), now.getMonth()-i, 1);
+      const ym=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+      const agg={}; let tot=0;
+      Object.keys(DB.days).filter(k=>k.slice(0,7)===ym).forEach(k=>{
+        const cc=catCalc(DB.days[k],k);
+        for(const id in cc.perCat){ agg[id]=(agg[id]||0)+cc.perCat[id]; tot+=cc.perCat[id]; }
+      });
+      out.push({label:parseInt(ym.slice(5))+'月', perCat:agg, total:tot});
+    }
+  }
+  return out;
+}
 function renderStats(){
   const tk=todayKey(); const ym=tk.slice(0,7);
   const keys=Object.keys(DB.days).sort();
@@ -1125,26 +1149,62 @@ function renderStats(){
     }
     const period=window._catPeriod||'week';
     if(pc){ [...pc.children].forEach(el=>el.classList.toggle('on', el.dataset.pid===period)); }
-    const cs=catSums(period);
-    const sums=cs.sums, ctot=cs.tot;
+    const cs2=catSums(period);
+    const sums=cs2.sums, ctot=cs2.tot;
+    const stackEl=document.getElementById('catStack');
+    if(stackEl){
+      const daysArr=catDays(period);
+      stackEl.style.gap=daysArr.length>12?'2px':'6px';
+      const maxT=Math.max(3600000,...daysArr.map(x=>x.total));
+      stackEl.innerHTML='';
+      daysArr.forEach(dd=>{
+        const col=document.createElement('div'); col.className='mb';
+        let segs='';
+        CATS.concat([CAT_UNK]).forEach(c=>{
+          const ms=dd.perCat[c.id]||0; if(!ms) return;
+          segs='<div style="height:'+Math.max(1,Math.round(ms/maxT*100))+'%; background:'+c.color+'; min-height:2px; border-radius:0"></div>'+segs;
+        });
+        const showV=daysArr.length<=7 && dd.total>=3600000;
+        col.innerHTML='<div class="mv">'+(showV?(fmtH(dd.total)||''):'')+'</div><div class="bararea" style="gap:0">'+segs+'</div><div class="ml">'+dd.label+'</div>';
+        stackEl.appendChild(col);
+      });
+    }
+    const pieEl=document.getElementById('catPie'), legEl=document.getElementById('catLegend');
+    if(pieEl&&legEl){
+      legEl.innerHTML='';
+      if(ctot){
+        let acc=0; const stops=[];
+        CATS.concat([CAT_UNK]).forEach(c=>{
+          const ms=sums[c.id]||0; if(!ms) return;
+          const p=ms/ctot*100;
+          stops.push(c.color+' '+acc.toFixed(2)+'% '+(acc+p).toFixed(2)+'%');
+          acc+=p;
+          legEl.innerHTML+='<div style="display:flex; align-items:center; gap:6px; font-size:12px; padding:1px 0;">'+
+            '<span style="width:10px; height:10px; border-radius:3px; background:'+c.color+'; flex:none"></span>'+
+            '<span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">'+c.label+'</span>'+
+            '<b>'+Math.round(p)+'%</b><span class="small" style="width:56px; text-align:right">'+(fmtH(ms)||'0')+'</span></div>';
+        });
+        pieEl.style.background='conic-gradient('+stops.join(', ')+')';
+      } else {
+        pieEl.style.background='var(--line)';
+        legEl.innerHTML='<div class="small">この期間の記録はありません（勤務中にカテゴリチップをタップ）</div>';
+      }
+    }
     catRowsEl.innerHTML='';
-    const mkRow=(label,ms,color,bold)=>{
-      const pct=ctot?Math.round(ms/ctot*100):0;
-      const el=document.createElement('div'); el.className='statrow';
-      if(bold) el.style.fontWeight='700';
-      el.innerHTML='<div class="sn" style="width:112px">'+label+'</div><div class="sbar"><div style="width:'+pct+'%; background:'+color+'"></div></div><div class="sp">'+pct+'%</div><div class="sc" style="color:var(--ink)">'+(fmtH(ms)||'0')+'</div>';
-      catRowsEl.appendChild(el);
-    };
+    const rateEl=document.getElementById('mangaRate30');
     if(ctot){
-      CATS.concat([CAT_UNK]).forEach(c=>{ const ms=sums[c.id]||0; if(ms) mkRow(c.label, ms, c.color, false); });
       const mangaMs=(sums['honpen']||0)+(sums['name']||0)+(sums['package']||0);
-      mkRow('漫画 合計', mangaMs, '#c05621', true);
-      mkRow('実働 合計', ctot, '#6b675c', true);
-      const rateEl=document.getElementById('mangaRate30');
+      const mkRow=(label,ms,color)=>{
+        const pct=ctot?Math.round(ms/ctot*100):0;
+        const el=document.createElement('div'); el.className='statrow'; el.style.fontWeight='700';
+        el.innerHTML='<div class="sn" style="width:112px">'+label+'</div><div class="sbar"><div style="width:'+pct+'%; background:'+color+'"></div></div><div class="sp">'+pct+'%</div><div class="sc" style="color:var(--ink)">'+(fmtH(ms)||'0')+'</div>';
+        catRowsEl.appendChild(el);
+      };
+      mkRow('漫画 合計', mangaMs, '#c05621');
+      mkRow('実働 合計', ctot, '#6b675c');
       if(rateEl) rateEl.innerHTML='漫画率: <b>'+Math.round(mangaMs/ctot*100)+'%</b>（漫画 '+(fmtH(mangaMs)||'0')+' ／ 実働 '+(fmtH(ctot)||'0')+'）';
     } else {
-      catRowsEl.innerHTML='<div class="small">この期間の記録はありません（勤務中にカテゴリチップをタップすると貯まります）</div>';
-      const rateEl=document.getElementById('mangaRate30'); if(rateEl) rateEl.innerHTML='';
+      if(rateEl) rateEl.innerHTML='';
     }
   }
   // taicho avg last 7 days
