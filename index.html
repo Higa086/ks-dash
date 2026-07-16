@@ -303,7 +303,8 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <div class="mchart" id="wChartM"></div>
   </div>
   <div class="card">
-    <h2>時間の使い方（カテゴリ別・直近30日）</h2>
+    <h2>時間の使い方（カテゴリ別）</h2>
+    <div class="modes" id="catPeriodChips" style="margin-bottom:6px"></div>
     <div id="catRows"></div>
     <div class="small" id="mangaRate30" style="margin-top:8px"></div>
   </div>
@@ -938,7 +939,7 @@ function renderWeek(){
     ['honpen','name','package'].forEach(id=>{ mangaMs+=cc.perCat[id]||0; });
   }
   const mr=catTotal?Math.round(mangaMs/catTotal*100):null;
-  document.getElementById('mangaRate').textContent=(mr==null?'—':mr+'%');
+  document.getElementById('mangaRate').textContent=(mr==null?'—':(fmtH(mangaMs)||'0m')+' / '+mr+'%');
   document.getElementById('mangaRateBar').style.width=(mr||0)+'%';
   document.getElementById('weekTitle').textContent='今週（'+(start.getMonth()+1)+'/'+start.getDate()+'〜）';
   document.getElementById('workDays').textContent=workDays;
@@ -980,6 +981,18 @@ function copyDiscord(){
 }
 
 // ================= render: stats =================
+function catSums(period){
+  const sums={}; let tot=0;
+  const addDay=(k)=>{ const cc=catCalc(DB.days[k],k);
+    for(const id in cc.perCat){ sums[id]=(sums[id]||0)+cc.perCat[id]; tot+=cc.perCat[id]; } };
+  if(period==='all'){ Object.keys(DB.days).forEach(addDay); }
+  else if(period==='week'){ const s=new Date(weekKey());
+    for(let i=0;i<7;i++){ const d=new Date(s); d.setDate(s.getDate()+i); addDay(todayKey(d)); } }
+  else if(period==='month'){ const ym=todayKey().slice(0,7);
+    Object.keys(DB.days).filter(k=>k.slice(0,7)===ym).forEach(addDay); }
+  else { for(let i=0;i<30;i++){ const d=new Date(); d.setDate(d.getDate()-i); addDay(todayKey(d)); } }
+  return {sums:sums, tot:tot};
+}
 function renderStats(){
   const tk=todayKey(); const ym=tk.slice(0,7);
   const keys=Object.keys(DB.days).sort();
@@ -1101,23 +1114,38 @@ function renderStats(){
   }
   const catRowsEl=document.getElementById('catRows');
   if(catRowsEl){
-    const sums={}; let ctot=0;
-    for(let i=0;i<30;i++){
-      const dt=new Date(); dt.setDate(dt.getDate()-i); const k2=todayKey(dt);
-      const cc=catCalc(DB.days[k2], k2);
-      for(const id in cc.perCat){ sums[id]=(sums[id]||0)+cc.perCat[id]; ctot+=cc.perCat[id]; }
+    const pc=document.getElementById('catPeriodChips');
+    if(pc && !pc.dataset.init){
+      pc.dataset.init='1';
+      [['week','今週'],['month','今月'],['30d','直近30日'],['all','全期間']].forEach(([pid,label])=>{
+        const el=document.createElement('div'); el.className='chip mini'; el.dataset.pid=pid; el.textContent=label;
+        el.onclick=()=>{ window._catPeriod=pid; renderStats(); };
+        pc.appendChild(el);
+      });
     }
+    const period=window._catPeriod||'week';
+    if(pc){ [...pc.children].forEach(el=>el.classList.toggle('on', el.dataset.pid===period)); }
+    const cs=catSums(period);
+    const sums=cs.sums, ctot=cs.tot;
     catRowsEl.innerHTML='';
-    CATS.concat([CAT_UNK]).forEach(c=>{
-      const ms=sums[c.id]||0; if(!ms) return;
+    const mkRow=(label,ms,color,bold)=>{
       const pct=ctot?Math.round(ms/ctot*100):0;
       const el=document.createElement('div'); el.className='statrow';
-      el.innerHTML='<div class="sn" style="width:112px">'+c.label+'</div><div class="sbar"><div style="width:'+pct+'%; background:'+c.color+'"></div></div><div class="sp">'+pct+'%</div><div class="sc">'+(fmtH(ms)||'0')+'</div>';
+      if(bold) el.style.fontWeight='700';
+      el.innerHTML='<div class="sn" style="width:112px">'+label+'</div><div class="sbar"><div style="width:'+pct+'%; background:'+color+'"></div></div><div class="sp">'+pct+'%</div><div class="sc" style="color:var(--ink)">'+(fmtH(ms)||'0')+'</div>';
       catRowsEl.appendChild(el);
-    });
-    if(!ctot) catRowsEl.innerHTML='<div class="small">勤務中に「いま何してる？」チップをタップすると、ここに内訳が貯まります</div>';
-    const mm=(sums['honpen']||0)+(sums['name']||0)+(sums['package']||0);
-    document.getElementById('mangaRate30').innerHTML=ctot?('直近30日の漫画率: <b>'+Math.round(mm/ctot*100)+'%</b>'):'';
+    };
+    if(ctot){
+      CATS.concat([CAT_UNK]).forEach(c=>{ const ms=sums[c.id]||0; if(ms) mkRow(c.label, ms, c.color, false); });
+      const mangaMs=(sums['honpen']||0)+(sums['name']||0)+(sums['package']||0);
+      mkRow('漫画 合計', mangaMs, '#c05621', true);
+      mkRow('実働 合計', ctot, '#6b675c', true);
+      const rateEl=document.getElementById('mangaRate30');
+      if(rateEl) rateEl.innerHTML='漫画率: <b>'+Math.round(mangaMs/ctot*100)+'%</b>（漫画 '+(fmtH(mangaMs)||'0')+' ／ 実働 '+(fmtH(ctot)||'0')+'）';
+    } else {
+      catRowsEl.innerHTML='<div class="small">この期間の記録はありません（勤務中にカテゴリチップをタップすると貯まります）</div>';
+      const rateEl=document.getElementById('mangaRate30'); if(rateEl) rateEl.innerHTML='';
+    }
   }
   // taicho avg last 7 days
   let ts=0, tc=0;
