@@ -179,6 +179,8 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <div style="display:flex; gap:8px; flex-wrap:wrap;" id="workBtns"></div>
     <div style="margin-top:8px"><b id="workStatus">未開始</b></div>
     <div class="small" id="workSummary"></div>
+    <div class="modes" id="catChips" style="margin-top:8px"></div>
+    <div class="small" id="catSummary" style="margin-top:4px"></div>
   </div>
   <div class="victory" id="victoryBox"></div>
   <div class="principle" id="principleBox"></div>
@@ -247,6 +249,8 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <div class="small">体調 (1-5)</div>
     <div class="modes" id="editTaicho"></div>
     <div class="small" id="editWork" style="margin-top:8px"></div>
+    <div class="small" style="margin-top:8px">カテゴリ別時間（分）— 数値を直すと手動値に。空欄でOKすると自動計測に戻る</div>
+    <div id="editCats"></div>
     <div class="small">メモ</div>
     <textarea id="editMemo" rows="2" placeholder="この日のメモ" oninput="saveEditMemoLite()" onchange="saveEditMemo()"></textarea>
   </div>
@@ -299,6 +303,11 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <div class="mchart" id="wChartM"></div>
   </div>
   <div class="card">
+    <h2>時間の使い方（カテゴリ別・直近30日）</h2>
+    <div id="catRows"></div>
+    <div class="small" id="mangaRate30" style="margin-top:8px"></div>
+  </div>
+  <div class="card">
     <h2>勤務ログ（直近14日）</h2>
     <table id="workLog"></table>
   </div>
@@ -320,6 +329,8 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <div class="bar"><div id="pageBar" style="width:0%; background:var(--blue)"></div></div>
     <div style="margin-top:10px"><b id="weekWork">0分</b><span class="small"> 実働（専業目標 週33h）</span></div>
     <div class="bar"><div id="workWeekBar" style="width:0%; background:var(--accent)"></div></div>
+    <div style="margin-top:10px"><b id="mangaRate">—</b><span class="small"> 漫画率（本編+ネーム+サムネ ÷ 実働）</span></div>
+    <div class="bar"><div id="mangaRateBar" style="width:0%; background:#c05621"></div></div>
   </div>
   <div class="card">
     <h2>週次振り返り（日曜15分）— 反省会ではなく「来週の一手」を決める場</h2>
@@ -538,6 +549,17 @@ function copyCfg(){
 }
 
 // ================= config =================
+const CATS=[
+ {id:'honpen',  label:'本編',            color:'#c05621'},
+ {id:'name',    label:'ネーム・プロット',  color:'#e08a3f'},
+ {id:'package', label:'サムネ・パッケージ', color:'#c9a227'},
+ {id:'research',label:'リサーチ',         color:'#33608d'},
+ {id:'promo',   label:'集客(X/pixiv)',    color:'#7c3aed'},
+ {id:'side',    label:'副業(YT/note)',    color:'#3d7a4f'},
+ {id:'env',     label:'環境整備',         color:'#8a867c'},
+];
+const CAT_UNK={id:'unk', label:'未分類', color:'#b7b3a8'};
+function catLabel(id){ const c=CATS.concat([CAT_UNK]).find(x=>x.id===id); return c?c.label:id; }
 const MODES=[
  {id:'normal', label:'通常日'},
  {id:'short',  label:'短縮日'},
@@ -698,6 +720,32 @@ function workCalc(ev, now){
 function workAdd(type){ const d=day(); if(!d.work) d.work={ev:[]};
   d.work.ev.push([type,Date.now()]); touch(d); save(); renderToday(); renderWeek();
   toast({start:'業務開始。いってらっしゃい。',break:'休憩へ。ちゃんと休むのも仕事。',resume:'再開。おかえりなさい。',end:'業務終了。お疲れさまでした。'}[type]); }
+function catCalc(rec, k){
+  const res={};
+  if(!(rec&&rec.work&&rec.work.ev&&rec.work.ev.length)) return {perCat:res, total:0};
+  const now = k===todayKey()?Date.now():rec.work.ev[rec.work.ev.length-1][1];
+  const catev=(rec.cat&&rec.cat.ev)||[];
+  let intervals=[], curStart=null;
+  rec.work.ev.forEach(([t,at])=>{
+    if(t==='start'||t==='resume'){ if(curStart==null) curStart=at; }
+    if(t==='break'||t==='end'){ if(curStart!=null){ intervals.push([curStart,at]); curStart=null; } }
+  });
+  if(curStart!=null) intervals.push([curStart, now]);
+  const activeAt=(t)=>{ let id='unk'; for(const [cid,at] of catev){ if(at<=t) id=cid; else break; } return id; };
+  intervals.forEach(([s,e])=>{
+    const pts=[s].concat(catev.map(x=>x[1]).filter(t=>t>s&&t<e)).concat([e]);
+    for(let i=0;i<pts.length-1;i++){
+      const id=activeAt(pts[i]);
+      res[id]=(res[id]||0)+(pts[i+1]-pts[i]);
+    }
+  });
+  if(rec.catAdj){ for(const id in rec.catAdj){ if(rec.catAdj[id]!=null) res[id]=rec.catAdj[id]*60000; } }
+  let total=0; for(const id in res) total+=res[id];
+  return {perCat:res, total:total};
+}
+function catAdd(id){ const d=day(); if(!d.cat) d.cat={ev:[]};
+  d.cat.ev.push([id, Date.now()]); touch(d); save(); renderToday();
+  toast('「'+catLabel(id)+'」に切替'); }
 function renderWork(d){
   const wb=document.getElementById('workBtns'); if(!wb) return;
   const ev=(d.work&&d.work.ev)||[];
@@ -711,6 +759,26 @@ function renderWork(d){
   else { mk('もう一度再開','resume',true); }
   document.getElementById('workStatus').textContent={idle:'未開始',working:'🟢 勤務中',break:'☕ 休憩中',done:'✅ 本日終了'}[wc.st];
   document.getElementById('workSummary').textContent= ev.length?('実働 '+fmtDur(wc.workMs)+'・休憩 '+fmtDur(wc.breakMs)):'開始ボタンで記録スタート（漫画でも副業でも）';
+  const chips=document.getElementById('catChips');
+  if(chips){
+    chips.innerHTML='';
+    if(wc.st==='working'){
+      const catev=(d.cat&&d.cat.ev)||[];
+      const cur=catev.length?catev[catev.length-1][0]:'unk';
+      CATS.forEach(c=>{
+        const el=document.createElement('div'); el.className='chip mini'+(cur===c.id?' on':'');
+        el.textContent=c.label; el.onclick=()=>catAdd(c.id);
+        chips.appendChild(el);
+      });
+    }
+  }
+  const cs=document.getElementById('catSummary');
+  if(cs){
+    const cc=catCalc(d, todayKey());
+    const parts=[];
+    CATS.concat([CAT_UNK]).forEach(c=>{ const ms=cc.perCat[c.id]; if(ms>=60000) parts.push(c.label+' '+fmtH(ms)); });
+    cs.textContent=parts.length?('内訳: '+parts.join(' ・ ')):(wc.st==='working'?'↑いま何をしているかタップ（切替時間が自動計上されます）':'');
+  }
 }
 function saveTodayMemoLite(){ const d=day(); d.memo=document.getElementById('todayMemo').value; touch(d); save(); }
 function saveEditMemoLite(){ if(!selKey)return; const r=day(selKey); r.memo=document.getElementById('editMemo').value; touch(r); save(); }
@@ -806,6 +874,27 @@ function renderEditor(k){
     ew='実働 '+fmtDur(wc.workMs)+'・休憩 '+fmtDur(wc.breakMs);
   }
   document.getElementById('editWork').textContent='勤務: '+ew;
+  const ec2=document.getElementById('editCats');
+  if(ec2){
+    ec2.innerHTML='';
+    const cc2=catCalc(rec, k);
+    CATS.concat([CAT_UNK]).forEach(c=>{
+      const ovr=rec.catAdj&&rec.catAdj[c.id]!=null;
+      const min=Math.round((cc2.perCat[c.id]||0)/60000);
+      const row=document.createElement('div');
+      row.style.cssText='display:flex; align-items:center; gap:8px; padding:2px 0; font-size:12.5px;';
+      row.innerHTML='<div style="width:118px; flex:none">'+c.label+'</div>'+
+        '<input type="number" min="0" style="width:84px; padding:4px 6px; margin:0" value="'+(min||'')+'">'+
+        '<span class="small">分'+(ovr?'（手動）':'')+'</span>';
+      row.querySelector('input').onchange=(e)=>{
+        const r=day(k); r.catAdj=r.catAdj||{};
+        const v=e.target.value.trim();
+        if(v===''){ delete r.catAdj[c.id]; } else { r.catAdj[c.id]=Math.max(0,parseInt(v)||0); }
+        touch(r); save(); renderEditor(k); renderWeek(); renderStats();
+      };
+      ec2.appendChild(row);
+    });
+  }
 }
 function editPages(n){ if(!selKey)return; const r=day(selKey); r.pages=Math.max(0,(r.pages||0)+n); if(n>0&&!r.checks.manga)r.checks.manga=true; touch(r); save(); renderCal(); renderEditor(selKey); renderAll(); }
 function saveEditMemo(){ if(!selKey)return; const r=day(selKey); r.memo=document.getElementById('editMemo').value; touch(r); save(); renderCal(); }
@@ -840,6 +929,17 @@ function renderWeek(){
   }
   document.getElementById('weekWork').textContent=fmtDur(wwork);
   document.getElementById('workWeekBar').style.width=Math.min(100,wwork/(33*3600000)*100)+'%';
+  let mangaMs=0, catTotal=0;
+  for(let i=0;i<7;i++){
+    const dt=new Date(start); dt.setDate(start.getDate()+i);
+    const k2=todayKey(dt);
+    const cc=catCalc(DB.days[k2], k2);
+    catTotal+=cc.total;
+    ['honpen','name','package'].forEach(id=>{ mangaMs+=cc.perCat[id]||0; });
+  }
+  const mr=catTotal?Math.round(mangaMs/catTotal*100):null;
+  document.getElementById('mangaRate').textContent=(mr==null?'—':mr+'%');
+  document.getElementById('mangaRateBar').style.width=(mr||0)+'%';
   document.getElementById('weekTitle').textContent='今週（'+(start.getMonth()+1)+'/'+start.getDate()+'〜）';
   document.getElementById('workDays').textContent=workDays;
   document.getElementById('workBar').style.width=Math.min(100,workDays/5*100)+'%';
@@ -998,6 +1098,26 @@ function renderStats(){
       lg.appendChild(tr); found++;
     }
     if(!found){ const tr=document.createElement('tr'); tr.innerHTML='<td colspan="5" class="small">まだ記録がありません（今日タブの「業務開始」から）</td>'; lg.appendChild(tr); }
+  }
+  const catRowsEl=document.getElementById('catRows');
+  if(catRowsEl){
+    const sums={}; let ctot=0;
+    for(let i=0;i<30;i++){
+      const dt=new Date(); dt.setDate(dt.getDate()-i); const k2=todayKey(dt);
+      const cc=catCalc(DB.days[k2], k2);
+      for(const id in cc.perCat){ sums[id]=(sums[id]||0)+cc.perCat[id]; ctot+=cc.perCat[id]; }
+    }
+    catRowsEl.innerHTML='';
+    CATS.concat([CAT_UNK]).forEach(c=>{
+      const ms=sums[c.id]||0; if(!ms) return;
+      const pct=ctot?Math.round(ms/ctot*100):0;
+      const el=document.createElement('div'); el.className='statrow';
+      el.innerHTML='<div class="sn" style="width:112px">'+c.label+'</div><div class="sbar"><div style="width:'+pct+'%; background:'+c.color+'"></div></div><div class="sp">'+pct+'%</div><div class="sc">'+(fmtH(ms)||'0')+'</div>';
+      catRowsEl.appendChild(el);
+    });
+    if(!ctot) catRowsEl.innerHTML='<div class="small">勤務中に「いま何してる？」チップをタップすると、ここに内訳が貯まります</div>';
+    const mm=(sums['honpen']||0)+(sums['name']||0)+(sums['package']||0);
+    document.getElementById('mangaRate30').innerHTML=ctot?('直近30日の漫画率: <b>'+Math.round(mm/ctot*100)+'%</b>'):'';
   }
   // taicho avg last 7 days
   let ts=0, tc=0;
