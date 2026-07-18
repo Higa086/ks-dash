@@ -744,6 +744,20 @@ function catCalc(rec, k){
 function catAdd(id){ const d=day(); if(!d.cat) d.cat={ev:[]};
   d.cat.ev.push([id, Date.now()]); touch(d); save(); renderToday();
   toast('「'+catLabel(id)+'」に切替'); }
+function repairWork(){
+  let changed=false;
+  for(let i=1;i<=8;i++){
+    const dt=new Date(); dt.setDate(dt.getDate()-i);
+    const k=todayKey(dt); const rec=DB.days[k];
+    if(!(rec&&rec.work&&rec.work.ev&&rec.work.ev.length)) continue;
+    const evs=rec.work.ev;
+    if(evs[evs.length-1][0]!=='end'){
+      evs.push(['end', evs[evs.length-1][1]]);
+      rec.u=Date.now(); changed=true;
+    }
+  }
+  if(changed){ persist(); schedulePush(); }
+}
 function renderWork(d){
   const wb=document.getElementById('workBtns'); if(!wb) return;
   const ev=(d.work&&d.work.ev)||[];
@@ -1129,7 +1143,8 @@ function renderStats(){
       const wc=workCalc(evs, k===tk?Date.now():evs[evs.length-1][1]);
       const first=evs[0][1];
       let endTs=null; evs.forEach(([t,at])=>{ if(t==='end') endTs=at; });
-      const endTxt= wc.st==='working'?'🟢勤務中': wc.st==='break'?'☕休憩中': endTs?fmtTime(endTs):'—';
+      const isTodayRow=(k===tk);
+      const endTxt= (isTodayRow&&wc.st==='working')?'🟢勤務中': (isTodayRow&&wc.st==='break')?'☕休憩中': endTs?fmtTime(endTs):'自動終了';
       const tr=document.createElement('tr');
       tr.innerHTML='<td>'+(dt.getMonth()+1)+'/'+dt.getDate()+'</td><td>'+fmtTime(first)+'</td><td>'+endTxt+'</td><td>'+(fmtH(wc.breakMs)||'0')+'</td><td><b>'+(fmtH(wc.workMs)||'0')+'</b></td>';
       lg.appendChild(tr); found++;
@@ -1358,6 +1373,7 @@ document.getElementById('clock').textContent=new Date().toLocaleTimeString('ja-J
 
 // boot
 initCal();
+repairWork();
 renderAll();
 document.getElementById('todoInput').addEventListener('keydown',e=>{ if(e.key==='Enter') addTodo(); });
 // Web公開版: 同期設定は「原則」タブで各端末1回だけ入力(保存されます)
@@ -1366,7 +1382,7 @@ if(cfg){ document.getElementById('cfgDb').value=cfg.db; document.getElementById(
   document.getElementById('syncStatusText').textContent='同期先: '+cfg.db;
   fetchAndMerge().then(startStream);
 } else setDot('','ローカル');
-setInterval(renderToday,60000);
+setInterval(()=>{ repairWork(); renderToday(); },60000);
 // 横スワイプでタブ遷移
 (function(){
   const order=['today','cal','week','stats','todo','rules'];
