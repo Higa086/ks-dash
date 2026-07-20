@@ -282,7 +282,8 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     </div>
   </div>
   <div class="card">
-    <h2>月別 本編ページ（直近6ヶ月）</h2>
+    <h2>本編ページ</h2>
+    <div class="modes" id="pgPeriodChips" style="margin-bottom:6px"></div>
     <div class="mchart" id="mChart"></div>
   </div>
   <div class="card">
@@ -997,7 +998,9 @@ function catSums(period){
   const addDay=(k)=>{ const cc=catCalc(DB.days[k],k);
     for(const id in cc.perCat){ sums[id]=(sums[id]||0)+cc.perCat[id]; tot+=cc.perCat[id]; } };
   if(period==='all'){ Object.keys(DB.days).forEach(addDay); }
-  else if(period==='week'){ const s=new Date(weekKey());
+  else if(period==='week'||period==='week1'||period==='week2'){
+    const off=period==='week1'?7:(period==='week2'?14:0);
+    const s=new Date(weekKey()); s.setDate(s.getDate()-off);
     for(let i=0;i<7;i++){ const d=new Date(s); d.setDate(s.getDate()+i); addDay(todayKey(d)); } }
   else if(period==='month'){ const ym=todayKey().slice(0,7);
     Object.keys(DB.days).filter(k=>k.slice(0,7)===ym).forEach(addDay); }
@@ -1007,8 +1010,10 @@ function catSums(period){
 function catDays(period){
   const out=[];
   const push=(k,label)=>{ const cc=catCalc(DB.days[k],k); out.push({label:label, perCat:cc.perCat, total:cc.total}); };
-  if(period==='week'){
-    const s=new Date(weekKey()); const names=['月','火','水','木','金','土','日'];
+  if(period==='week'||period==='week1'||period==='week2'){
+    const off=period==='week1'?7:(period==='week2'?14:0);
+    const s=new Date(weekKey()); s.setDate(s.getDate()-off);
+    const names=['月','火','水','木','金','土','日'];
     for(let i=0;i<7;i++){ const d=new Date(s); d.setDate(s.getDate()+i); push(todayKey(d), names[i]); }
   } else if(period==='month'){
     const now=new Date(); const days=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
@@ -1074,20 +1079,45 @@ function renderStats(){
       '<div class="sp">'+pct+'%</div><div class="sc">今月'+month+' / 計'+total+'</div>';
     rows.appendChild(el);
   });
-  // monthly pages chart (last 6 months)
-  const mc=document.getElementById('mChart'); mc.innerHTML='';
+  // pages chart (month/week toggle)
+  const mc=document.getElementById('mChart');
   const months=[]; const now=new Date();
   for(let i=5;i>=0;i--){
     const d=new Date(now.getFullYear(), now.getMonth()-i, 1);
     months.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'));
   }
-  const sums=months.map(m=>keys.filter(k=>k.slice(0,7)===m).reduce((s,k)=>s+((DB.days[k].pages)||0),0));
-  const mx=Math.max(1,...sums);
-  months.forEach((m,i)=>{
-    const el=document.createElement('div'); el.className='mb';
-    el.innerHTML='<div class="mv">'+(sums[i]||'')+'</div><div class="bararea"><div style="height:'+Math.round(sums[i]/mx*100)+'%"></div></div><div class="ml">'+parseInt(m.slice(5))+'月</div>';
-    mc.appendChild(el);
-  });
+  if(mc){
+    const ppc=document.getElementById('pgPeriodChips');
+    if(ppc && !ppc.dataset.init){
+      ppc.dataset.init='1';
+      [['month','月別(6ヶ月)'],['week','週別(8週)']].forEach(([pid,label])=>{
+        const el=document.createElement('div'); el.className='chip mini'; el.dataset.pid=pid; el.textContent=label;
+        el.onclick=()=>{ window._pgPeriod=pid; renderStats(); };
+        ppc.appendChild(el);
+      });
+    }
+    const pmode=window._pgPeriod||'month';
+    if(ppc){ [...ppc.children].forEach(el=>el.classList.toggle('on', el.dataset.pid===pmode)); }
+    mc.innerHTML='';
+    let items=[];
+    if(pmode==='month'){
+      items=months.map(m=>({label:parseInt(m.slice(5))+'月', v:keys.filter(k=>k.slice(0,7)===m).reduce((s,k)=>s+((DB.days[k].pages)||0),0)}));
+    } else {
+      const curWk=new Date(weekKey());
+      for(let i=7;i>=0;i--){
+        const ws=new Date(curWk); ws.setDate(curWk.getDate()-7*i);
+        let sum=0;
+        for(let j=0;j<7;j++){ const dt2=new Date(ws); dt2.setDate(ws.getDate()+j); const rec2=DB.days[todayKey(dt2)]; sum+=(rec2&&rec2.pages)||0; }
+        items.push({label:(ws.getMonth()+1)+'/'+ws.getDate(), v:sum});
+      }
+    }
+    const mx=Math.max(1,...items.map(x=>x.v));
+    items.forEach(it=>{
+      const el=document.createElement('div'); el.className='mb';
+      el.innerHTML='<div class="mv">'+(it.v||'')+'</div><div class="bararea"><div style="height:'+Math.round(it.v/mx*100)+'%"></div></div><div class="ml">'+it.label+'</div>';
+      mc.appendChild(el);
+    });
+  }
   // work time stats
   const dayMsOf=(k)=>{ const rec=DB.days[k]; if(!(rec&&rec.work&&rec.work.ev&&rec.work.ev.length)) return 0;
     const evs=rec.work.ev; return workCalc(evs, k===tk?Date.now():evs[evs.length-1][1]).workMs; };
@@ -1146,7 +1176,7 @@ function renderStats(){
       const isTodayRow=(k===tk);
       const endTxt= (isTodayRow&&wc.st==='working')?'🟢勤務中': (isTodayRow&&wc.st==='break')?'☕休憩中': endTs?fmtTime(endTs):'自動終了';
       const tr=document.createElement('tr');
-      tr.innerHTML='<td>'+(dt.getMonth()+1)+'/'+dt.getDate()+'</td><td>'+fmtTime(first)+'</td><td>'+endTxt+'</td><td>'+(fmtH(wc.breakMs)||'0')+'</td><td><b>'+(fmtH(wc.workMs)||'0')+'</b></td>';
+      tr.innerHTML='<td>'+(dt.getMonth()+1)+'/'+dt.getDate()+'('+['日','月','火','水','木','金','土'][dt.getDay()]+')</td><td>'+fmtTime(first)+'</td><td>'+endTxt+'</td><td>'+(fmtH(wc.breakMs)||'0')+'</td><td><b>'+(fmtH(wc.workMs)||'0')+'</b></td>';
       lg.appendChild(tr); found++;
     }
     if(!found){ const tr=document.createElement('tr'); tr.innerHTML='<td colspan="5" class="small">まだ記録がありません（今日タブの「業務開始」から）</td>'; lg.appendChild(tr); }
@@ -1156,7 +1186,7 @@ function renderStats(){
     const pc=document.getElementById('catPeriodChips');
     if(pc && !pc.dataset.init){
       pc.dataset.init='1';
-      [['week','今週'],['month','今月'],['30d','直近30日'],['all','全期間']].forEach(([pid,label])=>{
+      [['week','今週'],['week1','先週'],['week2','先々週'],['month','今月'],['30d','直近30日'],['all','全期間']].forEach(([pid,label])=>{
         const el=document.createElement('div'); el.className='chip mini'; el.dataset.pid=pid; el.textContent=label;
         el.onclick=()=>{ window._catPeriod=pid; renderStats(); };
         pc.appendChild(el);
