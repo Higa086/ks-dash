@@ -1119,6 +1119,16 @@ function renderStats(){
     }
     const mx=Math.max(1,...items.map(x=>x.v));
     mc.style.gap=items.length>12?'2px':'6px';
+    mc.style.position='relative';
+    mc.style.paddingLeft='34px';
+    const ymid=(mx/2%1)?(mx/2).toFixed(1):(mx/2);
+    const grid=document.createElement('div');
+    grid.style.cssText='position:absolute; left:0; right:0; top:0; bottom:0; pointer-events:none;';
+    [[13,mx+'P'],[44,ymid+'P'],[75,'0']].forEach(([top,val])=>{
+      grid.innerHTML+='<div style="position:absolute; left:34px; right:0; top:'+top+'px; border-top:1px dashed var(--line);"></div>'+
+        '<div style="position:absolute; left:0; width:28px; top:'+(top-7)+'px; font-size:9.5px; color:var(--sub); text-align:right;">'+val+'</div>';
+    });
+    mc.appendChild(grid);
     items.forEach(it=>{
       const el=document.createElement('div'); el.className='mb';
       el.innerHTML='<div class="mv">'+((items.length<=8&&it.v)?it.v:'')+'</div><div class="bararea"><div style="height:'+Math.round(it.v/mx*100)+'%" title="'+(it.t||it.label)+' '+it.v+'P"></div></div><div class="ml">'+it.label+'</div>';
