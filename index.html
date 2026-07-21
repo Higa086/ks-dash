@@ -1090,7 +1090,7 @@ function renderStats(){
     const ppc=document.getElementById('pgPeriodChips');
     if(ppc && !ppc.dataset.init){
       ppc.dataset.init='1';
-      [['month','月別(6ヶ月)'],['week','週別(8週)']].forEach(([pid,label])=>{
+      [['day','日別(30日)'],['week','週別(8週)'],['month','月別(6ヶ月)']].forEach(([pid,label])=>{
         const el=document.createElement('div'); el.className='chip mini'; el.dataset.pid=pid; el.textContent=label;
         el.onclick=()=>{ window._pgPeriod=pid; renderStats(); };
         ppc.appendChild(el);
@@ -1100,7 +1100,13 @@ function renderStats(){
     if(ppc){ [...ppc.children].forEach(el=>el.classList.toggle('on', el.dataset.pid===pmode)); }
     mc.innerHTML='';
     let items=[];
-    if(pmode==='month'){
+    if(pmode==='day'){
+      for(let i=29;i>=0;i--){
+        const d2=new Date(); d2.setDate(d2.getDate()-i);
+        const rec2=DB.days[todayKey(d2)];
+        items.push({label:(d2.getDay()===1||i===0)?(d2.getMonth()+1)+'/'+d2.getDate():'', v:(rec2&&rec2.pages)||0, t:(d2.getMonth()+1)+'/'+d2.getDate()});
+      }
+    } else if(pmode==='month'){
       items=months.map(m=>({label:parseInt(m.slice(5))+'月', v:keys.filter(k=>k.slice(0,7)===m).reduce((s,k)=>s+((DB.days[k].pages)||0),0)}));
     } else {
       const curWk=new Date(weekKey());
@@ -1112,9 +1118,10 @@ function renderStats(){
       }
     }
     const mx=Math.max(1,...items.map(x=>x.v));
+    mc.style.gap=items.length>12?'2px':'6px';
     items.forEach(it=>{
       const el=document.createElement('div'); el.className='mb';
-      el.innerHTML='<div class="mv">'+(it.v||'')+'</div><div class="bararea"><div style="height:'+Math.round(it.v/mx*100)+'%"></div></div><div class="ml">'+it.label+'</div>';
+      el.innerHTML='<div class="mv">'+((items.length<=8&&it.v)?it.v:'')+'</div><div class="bararea"><div style="height:'+Math.round(it.v/mx*100)+'%" title="'+(it.t||it.label)+' '+it.v+'P"></div></div><div class="ml">'+it.label+'</div>';
       mc.appendChild(el);
     });
   }
