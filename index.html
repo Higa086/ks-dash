@@ -64,7 +64,7 @@ h1{font-size:17px; font-weight:700;}
 .tl .row.now{background:var(--accent-soft); border-left-color:var(--accent); font-weight:700;}
 .tl .t{color:var(--sub); flex:none; width:88px; font-variant-numeric:tabular-nums;}
 .dots{display:flex; gap:8px; justify-content:space-between; margin:10px 0;}
-.dot{flex:1; text-align:center;}
+.dot{flex:1; text-align:center; cursor:pointer;}
 .dot .c{width:34px; height:34px; border-radius:50%; margin:0 auto 3px; border:2px solid var(--line);
   display:flex; align-items:center; justify-content:center; font-size:14px; background:var(--card);}
 .dot.work .c{background:var(--ok); border-color:var(--ok); color:#fff;}
@@ -136,7 +136,7 @@ th{color:var(--sub); font-weight:600;}
 .statrow .sp{width:40px; text-align:right; flex:none; font-variant-numeric:tabular-nums;}
 .statrow .sc{width:90px; flex:none; text-align:right; color:var(--sub); font-size:11px;}
 .mchart{display:flex; align-items:flex-end; gap:6px; height:90px; margin-top:8px;}
-.mchart .mb{flex:1; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; height:100%;}
+.mchart .mb{flex:1 1 0; min-width:0; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; height:100%;}
 .mchart .mb .bararea{width:100%; flex:1; display:flex; flex-direction:column; justify-content:flex-end;}
 .mchart .mb .bararea>div{width:100%; background:var(--blue); border-radius:4px 4px 0 0; min-height:2px;}
 .mchart .ml{font-size:10px; color:var(--sub); margin-top:2px; height:13px; line-height:13px; white-space:nowrap;}
@@ -323,8 +323,13 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
 <!-- ============ 週 ============ -->
 <div class="page" id="page-week">
   <div class="card">
-    <h2 id="weekTitle">今週</h2>
+    <div class="calhead">
+      <button class="navbtn" onclick="wkMove(1)">‹</button>
+      <b id="weekTitle">今週</b>
+      <button class="navbtn" onclick="wkMove(-1)">›</button>
+    </div>
     <div class="dots" id="weekDots"></div>
+    <div class="small" style="margin-top:-4px">曜日をタップするとその日の記録を編集できます（カレンダーが開きます）</div>
     <div><b id="workDays">0</b><span class="small"> / 5日で合格（週6想定・5日で◎・4日なら翌週の目標を下げる）</span></div>
     <div class="bar"><div id="workBar" style="width:0%"></div></div>
     <div style="margin-top:10px"><b id="weekPages">0</b><span class="small"> / 20P（本編期の目標）</span></div>
@@ -336,9 +341,9 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
   </div>
   <div class="card">
     <h2>週次振り返り（日曜15分）— 反省会ではなく「来週の一手」を決める場</h2>
-    <div class="small">今週の体調 (1-5)</div>
+    <div class="small" id="taichoLabel">今週の体調 (1-5)</div>
     <div class="taicho" id="taichoBtns"></div>
-    <div class="small" style="margin-top:10px">来週の一手（1つだけ）</div>
+    <div class="small" style="margin-top:10px" id="hitoteLabel">来週の一手（1つだけ）</div>
     <input type="text" id="hitote" placeholder="例: 9時に座る、を6日続ける" onchange="saveWeekMeta()">
     <div class="small" style="margin-top:10px">良かったこと</div>
     <input type="text" id="yokatta" placeholder="小さいことでOK" onchange="saveWeekMeta()">
@@ -461,7 +466,10 @@ function day(k=todayKey()){ if(!DB.days[k]) DB.days[k]={mode:'normal',checks:{},
   const r=DB.days[k]; r.checks=r.checks||{}; r.mode=r.mode||'normal'; return r; }
 function touch(rec){ rec.u=Date.now(); }
 function weekKey(d=new Date()){ const x=new Date(d.getFullYear(),d.getMonth(),d.getDate()); const dow=(x.getDay()+6)%7; x.setDate(x.getDate()-dow); return todayKey(x); }
-function week(){ if(!DB.weeks[weekKey()]) DB.weeks[weekKey()]={taicho:0,hitote:'',yokatta:'',u:0}; return DB.weeks[weekKey()]; }
+let wkOff=0;
+function curWeekKey(){ const d=new Date(weekKey()); d.setDate(d.getDate()-7*wkOff); return todayKey(d); }
+function wkMove(n){ wkOff=Math.max(0, wkOff+n); renderWeek(); }
+function week(k){ k=k||curWeekKey(); if(!DB.weeks[k]) DB.weeks[k]={taicho:0,hitote:'',yokatta:'',u:0}; return DB.weeks[k]; }
 
 // ================= sync (Firebase RTDB REST) =================
 let ES=null, pushTimer=null, lastPushed='';
@@ -701,6 +709,17 @@ function renderToday(){
 function chgPages(n){ const d=day(); d.pages=Math.max(0,(d.pages||0)+n); if(n>0&&!d.checks.manga)d.checks.manga=true; touch(d); save(); renderAll(); }
 function chgKotowari(n){ const d=day(); d.kotowari=Math.max(0,(d.kotowari||0)+n); if(n>0) toast('よく断った。引き受け筋の筋肉痛はすぐ軽くなる。'); touch(d); save(); renderToday(); }
 function fmtDur(ms){ const m=Math.round(ms/60000); if(m<60) return m+'分'; return Math.floor(m/60)+'時間'+(m%60?(m%60)+'分':''); }
+function addYAxis(el, maxVal, fmt, H){
+  H=H||90; const top=13, bot=H-13, mid=(top+bot)/2;
+  el.style.position='relative'; el.style.paddingLeft='36px';
+  const grid=document.createElement('div');
+  grid.style.cssText='position:absolute; left:0; right:0; top:0; bottom:0; pointer-events:none;';
+  [[top,maxVal],[mid,maxVal/2],[bot,0]].forEach(([y,v])=>{
+    grid.innerHTML+='<div style="position:absolute; left:36px; right:0; top:'+y+'px; border-top:1px dashed var(--line);"></div>'+
+      '<div style="position:absolute; left:0; width:30px; top:'+(y-7)+'px; font-size:9.5px; color:var(--sub); text-align:right;">'+fmt(v)+'</div>';
+  });
+  el.appendChild(grid);
+}
 function fmtTime(ts){ const d=new Date(ts); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
 function fmtH(ms){ const m=Math.round(ms/60000); if(m<=0) return ''; if(m<60) return m+'m'; return (Math.round(m/6)/10)+'h'; }
 function workCalc(ev, now){
@@ -914,7 +933,7 @@ function saveEditMemo(){ if(!selKey)return; const r=day(selKey); r.memo=document
 
 // ================= render: week =================
 function renderWeek(){
-  const wk=weekKey(); const start=new Date(wk);
+  const wk=curWeekKey(); const start=new Date(wk);
   const names=['月','火','水','木','金','土','日'];
   const dots=document.getElementById('weekDots'); dots.innerHTML='';
   let workDays=0, pages=0, wwork=0;
@@ -938,6 +957,8 @@ function renderWeek(){
     const el=document.createElement('div'); el.className=cls;
     el.innerHTML='<div class="c">'+mark+'</div><div class="d">'+names[i]+' '+dt.getDate()+'</div>'+
       '<div class="d" style="color:var(--accent); font-weight:700">'+(dayMs?fmtH(dayMs):'&nbsp;')+'</div>';
+    const jy=dt.getFullYear(), jm=dt.getMonth(), jk=k;
+    el.onclick=()=>{ calY=jy; calM=jm; selKey=jk; showPage('cal'); renderCal(); renderEditor(jk); };
     dots.appendChild(el);
   }
   document.getElementById('weekWork').textContent=fmtDur(wwork);
@@ -953,12 +974,16 @@ function renderWeek(){
   const mr=catTotal?Math.round(mangaMs/catTotal*100):null;
   document.getElementById('mangaRate').textContent=(mr==null?'—':(fmtH(mangaMs)||'0m')+' / '+mr+'%');
   document.getElementById('mangaRateBar').style.width=(mr||0)+'%';
-  document.getElementById('weekTitle').textContent='今週（'+(start.getMonth()+1)+'/'+start.getDate()+'〜）';
+  const wEnd=new Date(start); wEnd.setDate(start.getDate()+6);
+  document.getElementById('weekTitle').textContent=
+    (wkOff===0?'今週':(wkOff===1?'先週':wkOff+'週前'))+'（'+(start.getMonth()+1)+'/'+start.getDate()+'〜'+(wEnd.getMonth()+1)+'/'+wEnd.getDate()+'）';
   document.getElementById('workDays').textContent=workDays;
   document.getElementById('workBar').style.width=Math.min(100,workDays/5*100)+'%';
   document.getElementById('weekPages').textContent=pages;
   document.getElementById('pageBar').style.width=Math.min(100,pages/20*100)+'%';
   const w=week(); const tb=document.getElementById('taichoBtns'); tb.innerHTML='';
+  const tl=document.getElementById('taichoLabel');
+  if(tl) tl.textContent=(wkOff===0?'今週の体調 (1-5)':'この週の体調 (1-5)');
   for(let i=1;i<=5;i++){
     const b=document.createElement('button'); b.textContent=i;
     b.className=w.taicho===i?'on':'';
@@ -968,6 +993,8 @@ function renderWeek(){
   const htEl=document.getElementById('hitote'), ykEl=document.getElementById('yokatta');
   if(document.activeElement!==htEl) htEl.value=w.hitote||'';
   if(document.activeElement!==ykEl) ykEl.value=w.yokatta||'';
+  const hl=document.getElementById('hitoteLabel');
+  if(hl) hl.textContent=(wkOff===0?'来週の一手（1つだけ）':'この週に決めた「次の一手」');
   document.getElementById('taichoWarn').innerHTML=
     (w.taicho&&w.taicho<=2)?'<b style="color:var(--accent)">体調2以下 → 来週の制作目標を半分に。予備日を先に使う。谷の週に人生の決断をしない。</b>':'';
   buildDiscord(workDays,pages);
@@ -975,7 +1002,7 @@ function renderWeek(){
 function saveWeekMeta(){ const w=week(); w.hitote=document.getElementById('hitote').value; w.yokatta=document.getElementById('yokatta').value; touch(w); save(); buildDiscord(); }
 function buildDiscord(wd,pg){
   if(wd===undefined){
-    const wk=weekKey(); const start=new Date(wk); wd=0; pg=0;
+    const wk=curWeekKey(); const start=new Date(wk); wd=0; pg=0;
     for(let i=0;i<7;i++){ const dt=new Date(start); dt.setDate(start.getDate()+i);
       const rec=DB.days[todayKey(dt)]; if(rec){ if(rec.checks&&rec.checks.manga)wd++; pg+=rec.pages||0; } }
   }
@@ -1119,16 +1146,7 @@ function renderStats(){
     }
     const mx=Math.max(1,...items.map(x=>x.v));
     mc.style.gap=items.length>12?'2px':'6px';
-    mc.style.position='relative';
-    mc.style.paddingLeft='34px';
-    const ymid=(mx/2%1)?(mx/2).toFixed(1):(mx/2);
-    const grid=document.createElement('div');
-    grid.style.cssText='position:absolute; left:0; right:0; top:0; bottom:0; pointer-events:none;';
-    [[13,mx+'P'],[44,ymid+'P'],[75,'0']].forEach(([top,val])=>{
-      grid.innerHTML+='<div style="position:absolute; left:34px; right:0; top:'+top+'px; border-top:1px dashed var(--line);"></div>'+
-        '<div style="position:absolute; left:0; width:28px; top:'+(top-7)+'px; font-size:9.5px; color:var(--sub); text-align:right;">'+val+'</div>';
-    });
-    mc.appendChild(grid);
+    addYAxis(mc, mx, v=>((v%1)?v.toFixed(1):v)+'P', 90);
     items.forEach(it=>{
       const el=document.createElement('div'); el.className='mb';
       el.innerHTML='<div class="mv">'+((items.length<=8&&it.v)?it.v:'')+'</div><div class="bararea"><div style="height:'+Math.round(it.v/mx*100)+'%" title="'+(it.t||it.label)+' '+it.v+'P"></div></div><div class="ml">'+it.label+'</div>';
@@ -1144,6 +1162,7 @@ function renderStats(){
     for(let i=29;i>=0;i--){ const dt=new Date(); dt.setDate(dt.getDate()-i); wdays.push({dt:new Date(dt), ms:dayMsOf(todayKey(dt))}); }
     c30.innerHTML='';
     const mx=Math.max(3600000,...wdays.map(x=>x.ms));
+    addYAxis(c30, mx, v=>(fmtH(v)||'0'), 80);
     wdays.forEach((x,i)=>{
       const el=document.createElement('div'); el.className='mb';
       el.innerHTML='<div class="bararea"><div style="height:'+Math.round(x.ms/mx*100)+'%; background:var(--accent)" title="'+(x.dt.getMonth()+1)+'/'+x.dt.getDate()+' '+(fmtH(x.ms)||'0')+'"></div></div>'+
@@ -1162,6 +1181,7 @@ function renderStats(){
     }
     cw.innerHTML='';
     const mxw=Math.max(3600000,...wks.map(x=>x.sum));
+    addYAxis(cw, mxw, v=>(fmtH(v)||'0'), 90);
     wks.forEach(x=>{
       const el=document.createElement('div'); el.className='mb';
       el.innerHTML='<div class="mv">'+(fmtH(x.sum)||'')+'</div><div class="bararea"><div style="height:'+Math.round(x.sum/mxw*100)+'%; background:var(--accent)"></div></div><div class="ml">'+(x.ws.getMonth()+1)+'/'+x.ws.getDate()+'</div>';
@@ -1173,6 +1193,7 @@ function renderStats(){
     cm2.innerHTML='';
     const wsums=months.map(m=>keys.filter(k=>k.slice(0,7)===m).reduce((s,k)=>s+dayMsOf(k),0));
     const mxm=Math.max(3600000,...wsums);
+    addYAxis(cm2, mxm, v=>(fmtH(v)||'0'), 90);
     months.forEach((m,i)=>{
       const el=document.createElement('div'); el.className='mb';
       el.innerHTML='<div class="mv">'+(fmtH(wsums[i])||'')+'</div><div class="bararea"><div style="height:'+Math.round(wsums[i]/mxm*100)+'%; background:var(--accent)"></div></div><div class="ml">'+parseInt(m.slice(5))+'月</div>';
