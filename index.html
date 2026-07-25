@@ -1169,7 +1169,10 @@ function renderStats(){
     addYAxis(c30, mx, v=>(fmtH(v)||'0'), 80);
     wdays.forEach((x,i)=>{
       const el=document.createElement('div'); el.className='mb';
-      el.innerHTML='<div class="bararea"><div style="height:'+Math.round(x.ms/mx*100)+'%; background:var(--accent)" title="'+(x.dt.getMonth()+1)+'/'+x.dt.getDate()+' '+(fmtH(x.ms)||'0')+'"></div></div>'+
+      const hv=x.ms/3600000;
+      const lbl= hv>0 ? (hv>=10?String(Math.round(hv)):String(Math.round(hv*10)/10)) : '';
+      el.innerHTML='<div class="mv" style="font-size:7px; letter-spacing:-0.4px; overflow:visible">'+lbl+'</div>'+
+        '<div class="bararea"><div style="height:'+Math.round(x.ms/mx*100)+'%; background:var(--accent)" title="'+(x.dt.getMonth()+1)+'/'+x.dt.getDate()+' '+(fmtH(x.ms)||'0')+'"></div></div>'+
         '<div class="ml">'+((x.dt.getDay()===1||i===29)?(x.dt.getMonth()+1)+'/'+x.dt.getDate():'')+'</div>';
       c30.appendChild(el);
     });
