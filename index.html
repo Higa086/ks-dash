@@ -110,10 +110,11 @@ th{color:var(--sub); font-weight:600;}
 .calhead{display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;}
 .calhead b{font-size:16px;}
 .navbtn{width:36px; height:36px; border-radius:10px; border:1.5px solid var(--line); background:var(--card); font-size:16px; cursor:pointer; color:var(--ink);}
-.calgrid{display:grid; grid-template-columns:repeat(7,1fr); gap:4px;}
+.calgrid{display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:4px; width:100%;}
 .calgrid .wd{text-align:center; font-size:10.5px; color:var(--sub); padding:2px 0;}
 .cell{aspect-ratio:1; border-radius:10px; border:1.5px solid var(--line); background:var(--card);
-  display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; font-size:13px; position:relative; padding-bottom:10px;}
+  display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; font-size:13px; position:relative; padding-bottom:10px;
+  min-width:0; overflow:hidden;}
 .cell>div:first-child{line-height:1.2;}
 .cell .pg{margin-top:-1px;}
 .cell.blank{border:none; background:transparent; cursor:default;}
@@ -122,7 +123,7 @@ th{color:var(--sub); font-weight:600;}
 .cell.zero{background:var(--card);}
 .cell.today{outline:2.5px solid var(--accent); outline-offset:1px;}
 .cell.sel{border-color:var(--accent); border-width:2.5px;}
-.cell .pg{font-size:9.5px; color:var(--ok); font-weight:700; line-height:1;}
+.cell .pg{font-size:8.5px; letter-spacing:-0.3px; white-space:nowrap; color:var(--ok); font-weight:700; line-height:1; max-width:100%;}
 .cell .mk{position:absolute; top:2px; right:4px; font-size:9px; color:var(--blue);}
 .cell .rbar{position:absolute; bottom:3px; left:14%; right:14%; height:4px; background:var(--line); border-radius:99px; overflow:hidden;}
 .cell .rbar>div{height:100%; background:var(--accent); border-radius:99px;}
