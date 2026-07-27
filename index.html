@@ -171,6 +171,7 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
 
 <!-- ============ 今日 ============ -->
 <div class="page on" id="page-today">
+  <div id="teireiBanner"></div>
   <div class="card">
     <h2>今日のモード宣言 <span class="small">(宣言した休みはサボりではなく計画)</span></h2>
     <div class="modes" id="modeChips"></div>
@@ -708,6 +709,41 @@ function renderToday(){
   document.getElementById('dayTaichoNote').textContent =
     d.taicho ? (d.taicho<=2?'低め。目標は半分に。予備日を先に使う。':'記録済み。寝る前に変わったら更新でOK。') : '1タップだけ。寝る前でもOK。';
   renderWork(d);
+  renderTeirei();
+}
+const DOC_URL='https://docs.google.com/document/d/1aLwN1eh6C0o0pdEmzbV20QBMEeOdb2OOcbgKJjsG-MQ/edit';
+const SHEET_URL='https://docs.google.com/spreadsheets/d/1qwXVjYZ-M5CuQ1tOx6o6O9eG_T7bIVskx7cud5iy-AI/edit';
+function renderTeirei(){
+  const el=document.getElementById('teireiBanner'); if(!el) return;
+  const n=new Date(); const dow=n.getDay(); const dd=n.getDate();
+  const isMon=(dow===1), isFirst=(dd===1);
+  if(!isMon && !isFirst){ el.innerHTML=''; return; }
+  const t=isFirst?'月次定例の日':'週次定例の日';
+  const d2=isFirst?'前月の売上を記入 → 直近6ヶ月平均と撤退ラインを確認 → KPTを3行 → 妻に共有'
+                  :'先週の数字を転記 → 先週の一手を○× → 今週の目標（4つまで）→ 妻の予定を見て工数配分';
+  el.innerHTML='<div class="card" style="background:var(--gold); border-color:var(--accent)">'+
+    '<b style="color:var(--accent)">📋 '+t+'</b><div class="small" style="margin-top:4px">'+d2+'</div>'+
+    '<button class="btn" style="margin-top:8px" onclick="copyWeekNums()">先週の数字をコピー</button> '+
+    '<a class="btn ghost" style="margin-top:8px; text-decoration:none; display:inline-block" href="'+DOC_URL+'" target="_blank">レジュメ</a> '+
+    '<a class="btn ghost" style="margin-top:8px; text-decoration:none; display:inline-block" href="'+SHEET_URL+'" target="_blank">週次シート</a></div>';
+}
+function copyWeekNums(){
+  const s=new Date(weekKey()); s.setDate(s.getDate()-7);
+  let P=0,W=0,M=0,days=0,rest=0;
+  for(let i=0;i<7;i++){
+    const dt=new Date(s); dt.setDate(s.getDate()+i); const k=todayKey(dt);
+    const r=DB.days[k]; if(!r) continue;
+    P+=r.pages||0; if(r.pages>0) days++;
+    if(isRest(r.mode)) rest++;
+    if(r.work&&r.work.ev&&r.work.ev.length) W+=workCalc(r.work.ev, r.work.ev[r.work.ev.length-1][1]).workMs;
+    const cc=catCalc(r,k); M+=(cc.perCat.honpen||0)+(cc.perCat.name||0)+(cc.perCat.package||0);
+  }
+  const e=new Date(s); e.setDate(s.getDate()+6);
+  const txt='【'+(s.getMonth()+1)+'/'+s.getDate()+'〜'+(e.getMonth()+1)+'/'+e.getDate()+'】\n'+
+    'ページ: '+fmtP(P)+'P\n実働: '+(W/3600000).toFixed(1)+'h\n漫画時間: '+(M/3600000).toFixed(1)+'h\n'+
+    '漫画率: '+(W?Math.round(M/W*100):0)+'%\n制作日: '+days+'日（休養/休日宣言 '+rest+'日）';
+  if(navigator.clipboard) navigator.clipboard.writeText(txt).then(()=>toast('コピーしました'));
+  else toast('コピー非対応');
 }
 function fmtP(v){ v=v||0; return (v%1)?v.toFixed(1):String(v); }
 function chgPages(n){ const d=day(); d.pages=Math.max(0,Math.round(((d.pages||0)+n)*2)/2); if(n>0&&!d.checks.manga)d.checks.manga=true; touch(d); save(); renderAll(); }
