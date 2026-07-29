@@ -837,7 +837,7 @@ function renderWork(d){
     if(wc.st==='working'){
       const catev=(d.cat&&d.cat.ev)||[];
       const cur=catev.length?catev[catev.length-1][0]:'unk';
-      CATS.forEach(c=>{
+      CATS.concat([CAT_UNK]).forEach(c=>{
         const el=document.createElement('div'); el.className='chip mini'+(cur===c.id?' on':'');
         el.textContent=c.label; el.onclick=()=>catAdd(c.id);
         chips.appendChild(el);
