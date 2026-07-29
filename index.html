@@ -184,6 +184,14 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <div class="modes" id="catChips" style="margin-top:8px"></div>
     <div class="small" id="catSummary" style="margin-top:4px"></div>
   </div>
+  <div class="card">
+    <div class="counter" id="pageCounter" style="padding-top:2px">
+      <button class="cbtn" onclick="chgPages(-0.5)">−</button>
+      <div class="cnum" id="pageNum">0</div>
+      <button class="cbtn" onclick="chgPages(0.5)">＋</button>
+      <div><b>本編ページ（今日）</b><div class="hint" id="pageTotals">今週 - ／ 累計 -</div></div>
+    </div>
+  </div>
   <div class="victory" id="victoryBox"></div>
   <div class="principle" id="principleBox"></div>
   <div id="reopenBanner"></div>
@@ -191,12 +199,6 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
   <div class="card" id="checkCard">
     <h2 id="checkTitle">今日のチェック</h2>
     <div id="checkList"></div>
-    <div class="counter" id="pageCounter">
-      <button class="cbtn" onclick="chgPages(-0.5)">−</button>
-      <div class="cnum" id="pageNum">0</div>
-      <button class="cbtn" onclick="chgPages(0.5)">＋</button>
-      <div><b>本編ページ</b><div class="hint">週20Pで週刊連載ペース</div></div>
-    </div>
     <div class="counter" id="kotowariRow" style="display:none">
       <button class="cbtn" onclick="chgKotowari(-1)">−</button>
       <div class="cnum" id="kotowariNum">0</div>
@@ -289,7 +291,7 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <div class="mchart" id="mChart"></div>
   </div>
   <div class="card">
-    <h2>実働時間（直近30日）</h2>
+    <h2>実働時間（直近3週間）</h2>
     <div class="mchart" id="wChart30" style="gap:2px; height:80px"></div>
     <h2 style="margin-top:16px">週ごと（直近8週・週開始日）</h2>
     <div class="mchart" id="wChartW"></div>
@@ -681,6 +683,7 @@ function renderToday(){
       list.appendChild(el);
     });
     document.getElementById('pageNum').textContent=fmtP(d.pages);
+    updatePageTotals();
     document.getElementById('kotowariRow').style.display=zaiseki?'flex':'none';
     document.getElementById('kotowariNum').textContent=d.kotowari||0;
     const tmEl=document.getElementById('todayMemo');
@@ -709,7 +712,17 @@ function renderToday(){
   document.getElementById('dayTaichoNote').textContent =
     d.taicho ? (d.taicho<=2?'低め。目標は半分に。予備日を先に使う。':'記録済み。寝る前に変わったら更新でOK。') : '1タップだけ。寝る前でもOK。';
   renderWork(d);
+  updatePageTotals();
   renderTeirei();
+}
+function updatePageTotals(){
+  const el=document.getElementById('pageTotals'); if(!el) return;
+  const s=new Date(weekKey()); let wk=0;
+  for(let i=0;i<7;i++){ const dt=new Date(s); dt.setDate(s.getDate()+i);
+    const r=DB.days[todayKey(dt)]; if(r) wk+=r.pages||0; }
+  let tot=0; Object.keys(DB.days).forEach(k=>{ tot+=(DB.days[k].pages)||0; });
+  const goal=20;
+  el.innerHTML='今週 <b style="color:var(--ink)">'+fmtP(wk)+'P</b> / '+goal+'P　・　累計 <b style="color:var(--ink)">'+fmtP(tot)+'P</b>';
 }
 const DOC_URL='https://docs.google.com/document/d/1aLwN1eh6C0o0pdEmzbV20QBMEeOdb2OOcbgKJjsG-MQ/edit';
 const SHEET_URL='https://docs.google.com/spreadsheets/d/1qwXVjYZ-M5CuQ1tOx6o6O9eG_T7bIVskx7cud5iy-AI/edit';
@@ -1157,18 +1170,18 @@ function renderStats(){
     const ppc=document.getElementById('pgPeriodChips');
     if(ppc && !ppc.dataset.init){
       ppc.dataset.init='1';
-      [['day','日別(30日)'],['week','週別(8週)'],['month','月別(6ヶ月)']].forEach(([pid,label])=>{
+      [['day','日別(3週間)'],['week','週別(8週)'],['month','月別(6ヶ月)']].forEach(([pid,label])=>{
         const el=document.createElement('div'); el.className='chip mini'; el.dataset.pid=pid; el.textContent=label;
         el.onclick=()=>{ window._pgPeriod=pid; renderStats(); };
         ppc.appendChild(el);
       });
     }
-    const pmode=window._pgPeriod||'month';
+    const pmode=window._pgPeriod||'week';
     if(ppc){ [...ppc.children].forEach(el=>el.classList.toggle('on', el.dataset.pid===pmode)); }
     mc.innerHTML='';
     let items=[];
     if(pmode==='day'){
-      for(let i=29;i>=0;i--){
+      for(let i=20;i>=0;i--){
         const d2=new Date(); d2.setDate(d2.getDate()-i);
         const rec2=DB.days[todayKey(d2)];
         items.push({label:(d2.getDay()===1||i===0)?(d2.getMonth()+1)+'/'+d2.getDate():'', v:(rec2&&rec2.pages)||0, t:(d2.getMonth()+1)+'/'+d2.getDate()});
@@ -1189,7 +1202,7 @@ function renderStats(){
     addYAxis(mc, mx, v=>((v%1)?v.toFixed(1):v)+'P', 90);
     items.forEach(it=>{
       const el=document.createElement('div'); el.className='mb';
-      el.innerHTML='<div class="mv">'+((items.length<=8&&it.v)?fmtP(it.v):'')+'</div><div class="bararea"><div style="height:'+Math.round(it.v/mx*100)+'%" title="'+(it.t||it.label)+' '+fmtP(it.v)+'P"></div></div><div class="ml">'+it.label+'</div>';
+      el.innerHTML='<div class="mv" style="'+(items.length>10?'font-size:8.5px; letter-spacing:-0.3px; overflow:visible':'')+'">'+(it.v?fmtP(it.v):'')+'</div><div class="bararea"><div style="height:'+Math.round(it.v/mx*100)+'%" title="'+(it.t||it.label)+' '+fmtP(it.v)+'P"></div></div><div class="ml">'+it.label+'</div>';
       mc.appendChild(el);
     });
   }
@@ -1199,7 +1212,7 @@ function renderStats(){
   const c30=document.getElementById('wChart30');
   if(c30){
     const wdays=[];
-    for(let i=29;i>=0;i--){ const dt=new Date(); dt.setDate(dt.getDate()-i); wdays.push({dt:new Date(dt), ms:dayMsOf(todayKey(dt))}); }
+    for(let i=20;i>=0;i--){ const dt=new Date(); dt.setDate(dt.getDate()-i); wdays.push({dt:new Date(dt), ms:dayMsOf(todayKey(dt))}); }
     c30.innerHTML='';
     const mx=Math.max(3600000,...wdays.map(x=>x.ms));
     addYAxis(c30, mx, v=>(fmtH(v)||'0'), 80);
@@ -1207,9 +1220,9 @@ function renderStats(){
       const el=document.createElement('div'); el.className='mb';
       const hv=x.ms/3600000;
       const lbl= hv>0 ? (hv>=10?String(Math.round(hv)):String(Math.round(hv*10)/10)) : '';
-      el.innerHTML='<div class="mv" style="font-size:7px; letter-spacing:-0.4px; overflow:visible">'+lbl+'</div>'+
+      el.innerHTML='<div class="mv" style="font-size:8.5px; letter-spacing:-0.3px; overflow:visible">'+lbl+'</div>'+
         '<div class="bararea"><div style="height:'+Math.round(x.ms/mx*100)+'%; background:var(--accent)" title="'+(x.dt.getMonth()+1)+'/'+x.dt.getDate()+' '+(fmtH(x.ms)||'0')+'"></div></div>'+
-        '<div class="ml">'+((x.dt.getDay()===1||i===29)?(x.dt.getMonth()+1)+'/'+x.dt.getDate():'')+'</div>';
+        '<div class="ml">'+((x.dt.getDay()===1||i===20)?(x.dt.getMonth()+1)+'/'+x.dt.getDate():'')+'</div>';
       c30.appendChild(el);
     });
   }
@@ -1288,7 +1301,11 @@ function renderStats(){
         let segs='';
         CATS.concat([CAT_UNK]).forEach(c=>{
           const ms=dd.perCat[c.id]||0; if(!ms) return;
-          segs='<div style="height:'+Math.max(1,Math.round(ms/maxT*100))+'%; background:'+c.color+'; min-height:2px; border-radius:0"></div>'+segs;
+          const hpct=Math.max(1,Math.round(ms/maxT*100));
+          const share=dd.total?ms/dd.total:0;
+          const inLbl=(share>=0.25 && hpct>=14 && daysArr.length<=10)
+            ? '<span style="font-size:8px; color:#fff; line-height:1.1; display:block; text-align:center; padding-top:2px; letter-spacing:-0.3px">'+c.label.replace(/\(.*\)/,'')+'<br>'+(fmtH(ms)||'')+'</span>' : '';
+          segs='<div style="height:'+hpct+'%; background:'+c.color+'; min-height:2px; border-radius:0; overflow:hidden">'+inLbl+'</div>'+segs;
         });
         const showV=daysArr.length<=7 && dd.total>=3600000;
         col.innerHTML='<div class="mv">'+(showV?(fmtH(dd.total)||''):'')+'</div><div class="bararea" style="gap:0">'+segs+'</div><div class="ml">'+dd.label+'</div>';
