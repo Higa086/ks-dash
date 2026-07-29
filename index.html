@@ -1300,7 +1300,7 @@ function renderStats(){
         const col=document.createElement('div'); col.className='mb';
         let segs='';
         CATS.concat([CAT_UNK]).forEach(c=>{
-          const ms=dd.perCat[c.id]||0; if(!ms) return;
+          const ms=dd.perCat[c.id]||0; if(ms<60000) return;
           const hpct=Math.max(1,Math.round(ms/maxT*100));
           const share=dd.total?ms/dd.total:0;
           const inLbl=(share>=0.25 && hpct>=14 && daysArr.length<=10)
@@ -1318,7 +1318,7 @@ function renderStats(){
       if(ctot){
         let acc=0; const stops=[];
         CATS.concat([CAT_UNK]).forEach(c=>{
-          const ms=sums[c.id]||0; if(!ms) return;
+          const ms=sums[c.id]||0; if(ms<60000) return;
           const p=ms/ctot*100;
           stops.push(c.color+' '+acc.toFixed(2)+'% '+(acc+p).toFixed(2)+'%');
           acc+=p;
