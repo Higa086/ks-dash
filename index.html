@@ -465,11 +465,13 @@ function load(){
 }
 function persist(){ localStorage.setItem(KEY, JSON.stringify(DB)); }
 function save(){ persist(); schedulePush(); }
-function todayKey(d=new Date()){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+const DAY_SHIFT_MS=3*3600000; // 午前3時を日付の変わり目とする
+function logicalNow(){ return new Date(Date.now()-DAY_SHIFT_MS); }
+function todayKey(d){ if(d===undefined) d=logicalNow(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function day(k=todayKey()){ if(!DB.days[k]) DB.days[k]={mode:'normal',checks:{},pages:0,kotowari:0,memo:'',u:0};
   const r=DB.days[k]; r.checks=r.checks||{}; r.mode=r.mode||'normal'; return r; }
 function touch(rec){ rec.u=Date.now(); }
-function weekKey(d=new Date()){ const x=new Date(d.getFullYear(),d.getMonth(),d.getDate()); const dow=(x.getDay()+6)%7; x.setDate(x.getDate()-dow); return todayKey(x); }
+function weekKey(d){ if(d===undefined) d=logicalNow(); const x=new Date(d.getFullYear(),d.getMonth(),d.getDate()); const dow=(x.getDay()+6)%7; x.setDate(x.getDate()-dow); return todayKey(x); }
 let wkOff=0;
 function curWeekKey(){ const d=new Date(weekKey()); d.setDate(d.getDate()-7*wkOff); return todayKey(d); }
 function wkMove(n){ wkOff=Math.max(0, wkOff+n); renderWeek(); }
@@ -637,9 +639,10 @@ function isRest(m){ return m==='off'||m==='sick'; }
 
 // ================= render: today =================
 function renderToday(){
-  const d=day(); const now=new Date();
+  const d=day(); const now=new Date(); const lnow=logicalNow();
   document.getElementById('dateTitle').textContent =
-    now.toLocaleDateString('ja-JP',{month:'long',day:'numeric',weekday:'short'});
+    lnow.toLocaleDateString('ja-JP',{month:'long',day:'numeric',weekday:'short'})
+    + (lnow.getDate()!==now.getDate()?'（深夜・前日扱い）':'');
   const zaiseki=DB.settings.zaiseki;
   document.getElementById('phaseLabel').textContent = zaiseki ? '在籍中モード: 円満退社と断る練習が主任務' : '専業モード: 週33h・月1作';
   const chips=document.getElementById('modeChips'); chips.innerHTML='';
@@ -728,7 +731,7 @@ const DOC_URL='https://docs.google.com/document/d/1aLwN1eh6C0o0pdEmzbV20QBMEeOdb
 const SHEET_URL='https://docs.google.com/spreadsheets/d/1qwXVjYZ-M5CuQ1tOx6o6O9eG_T7bIVskx7cud5iy-AI/edit';
 function renderTeirei(){
   const el=document.getElementById('teireiBanner'); if(!el) return;
-  const n=new Date(); const dow=n.getDay(); const dd=n.getDate();
+  const n=logicalNow(); const dow=n.getDay(); const dd=n.getDate();
   const isMon=(dow===1), isFirst=(dd===1);
   if(!isMon && !isFirst){ el.innerHTML=''; return; }
   const t=isFirst?'月次定例の日':'週次定例の日';
@@ -791,6 +794,14 @@ function workCalc(ev, now){
 function workAdd(type){ const d=day(); if(!d.work) d.work={ev:[]};
   d.work.ev.push([type,Date.now()]); touch(d); save(); renderToday(); renderWeek();
   toast({start:'業務開始。いってらっしゃい。',break:'休憩へ。ちゃんと休むのも仕事。',resume:'再開。おかえりなさい。',end:'業務終了。お疲れさまでした。'}[type]); }
+function dayWC(rec,k){
+  const ev=(rec&&rec.work&&rec.work.ev)||[];
+  const base=ev.length?workCalc(ev, k===todayKey()?Date.now():ev[ev.length-1][1])
+                      :{workMs:0,breakMs:0,st:'idle'};
+  const a=rec&&rec.workAdj;
+  if(a){ if(a.w!=null) base.workMs=a.w*60000; if(a.b!=null) base.breakMs=a.b*60000; }
+  return base;
+}
 function catCalc(rec, k){
   const res={};
   if(!(rec&&rec.work&&rec.work.ev&&rec.work.ev.length)) return {perCat:res, total:0};
@@ -818,23 +829,27 @@ function catAdd(id){ const d=day(); if(!d.cat) d.cat={ev:[]};
   d.cat.ev.push([id, Date.now()]); touch(d); save(); renderToday();
   toast('「'+catLabel(id)+'」に切替'); }
 function repairWork(){
-  let changed=false;
+  let changed=false, fixed=0;
   for(let i=1;i<=8;i++){
-    const dt=new Date(); dt.setDate(dt.getDate()-i);
+    const dt=logicalNow(); dt.setDate(dt.getDate()-i);
     const k=todayKey(dt); const rec=DB.days[k];
     if(!(rec&&rec.work&&rec.work.ev&&rec.work.ev.length)) continue;
     const evs=rec.work.ev;
     if(evs[evs.length-1][0]!=='end'){
-      evs.push(['end', evs[evs.length-1][1]]);
-      rec.u=Date.now(); changed=true;
+      // その日の23:59:59で締める（日跨ぎ作業の消失を防ぐ）
+      const eod=new Date(dt); eod.setDate(eod.getDate()+1); eod.setHours(2,59,59,0);
+      const t=Math.max(evs[evs.length-1][1], Math.min(eod.getTime(), Date.now()));
+      evs.push(['end', t]);
+      rec.u=Date.now(); changed=true; fixed++;
     }
   }
-  if(changed){ persist(); schedulePush(); }
+  if(changed){ persist(); schedulePush();
+    if(fixed&&typeof toast==='function') setTimeout(()=>toast('前日の勤務を23:59で自動終了しました'),1200); }
 }
 function renderWork(d){
   const wb=document.getElementById('workBtns'); if(!wb) return;
   const ev=(d.work&&d.work.ev)||[];
-  const wc=workCalc(ev);
+  const wc=dayWC(d, todayKey());
   wb.innerHTML='';
   const mk=(label,type,ghost)=>{ const b=document.createElement('button'); b.className='btn'+(ghost?' ghost':'');
     b.style.marginTop='0'; b.style.padding='8px 14px'; b.textContent=label; b.onclick=()=>workAdd(type); wb.appendChild(b); };
@@ -891,11 +906,7 @@ function renderCal(){
       if(rec.checks&&rec.checks.manga){ cls+=' work'; workD++; }
       else if(isRest(rec.mode)) cls+=' rest';
       totP+=rec.pages||0;
-      if(rec.work&&rec.work.ev&&rec.work.ev.length){
-        const evs=rec.work.ev;
-        wms=workCalc(evs, k===tk?Date.now():evs[evs.length-1][1]).workMs;
-        totW+=wms;
-      }
+      wms=dayWC(rec,k).workMs; totW+=wms;
     }
     if(k===tk) cls+=' today';
     if(k>tk) cls+=' future';
@@ -952,13 +963,19 @@ function renderEditor(k){
     c.onclick=()=>{ const r=day(k); r.taicho=(r.taicho===i?0:i); touch(r); save(); renderEditor(k); };
     et.appendChild(c);
   }
-  let ew='記録なし';
-  if(rec.work&&rec.work.ev&&rec.work.ev.length){
-    const evs=rec.work.ev;
-    const wc=workCalc(evs, k===todayKey()?Date.now():evs[evs.length-1][1]);
-    ew='実働 '+fmtDur(wc.workMs)+'・休憩 '+fmtDur(wc.breakMs);
-  }
-  document.getElementById('editWork').textContent='勤務: '+ew;
+  const wcE=dayWC(rec,k);
+  const ovW=rec.workAdj&&rec.workAdj.w!=null, ovB=rec.workAdj&&rec.workAdj.b!=null;
+  const ewEl=document.getElementById('editWork');
+  ewEl.innerHTML='勤務（分・空欄で自動計測に戻る）：'+
+    '実働 <input type="number" min="0" id="editWorkW" style="width:80px; padding:4px 6px; margin:0" value="'+Math.round(wcE.workMs/60000)+'">'+(ovW?' <b>手動</b>':'')+
+    '　休憩 <input type="number" min="0" id="editWorkB" style="width:80px; padding:4px 6px; margin:0" value="'+Math.round(wcE.breakMs/60000)+'">'+(ovB?' <b>手動</b>':'');
+  const bind=(id,key)=>{ const el=document.getElementById(id); if(!el) return;
+    el.onchange=(e)=>{ const r=day(k); r.workAdj=r.workAdj||{};
+      const v=e.target.value.trim();
+      if(v===''){ delete r.workAdj[key]; if(!Object.keys(r.workAdj).length) delete r.workAdj; }
+      else r.workAdj[key]=Math.max(0,parseInt(v)||0);
+      touch(r); save(); renderEditor(k); renderWeek(); renderCal(); renderStats(); }; };
+  bind('editWorkW','w'); bind('editWorkB','b');
   const ec2=document.getElementById('editCats');
   if(ec2){
     ec2.innerHTML='';
@@ -1002,11 +1019,7 @@ function renderWeek(){
     }
     if(isToday) cls+=' today';
     let dayMs=0;
-    if(rec&&rec.work&&rec.work.ev&&rec.work.ev.length){
-      const evs=rec.work.ev;
-      dayMs=workCalc(evs, isToday?Date.now():evs[evs.length-1][1]).workMs;
-      wwork+=dayMs;
-    }
+    if(rec){ dayMs=dayWC(rec,k).workMs; wwork+=dayMs; }
     const el=document.createElement('div'); el.className=cls;
     el.innerHTML='<div class="c">'+mark+'</div><div class="d">'+names[i]+' '+dt.getDate()+'</div>'+
       '<div class="d" style="color:var(--accent); font-weight:700">'+(dayMs?fmtH(dayMs):'&nbsp;')+'</div>';
@@ -1207,8 +1220,7 @@ function renderStats(){
     });
   }
   // work time stats
-  const dayMsOf=(k)=>{ const rec=DB.days[k]; if(!(rec&&rec.work&&rec.work.ev&&rec.work.ev.length)) return 0;
-    const evs=rec.work.ev; return workCalc(evs, k===tk?Date.now():evs[evs.length-1][1]).workMs; };
+  const dayMsOf=(k)=>{ const rec=DB.days[k]; return rec?dayWC(rec,k).workMs:0; };
   const c30=document.getElementById('wChart30');
   if(c30){
     const wdays=[];
@@ -1262,9 +1274,13 @@ function renderStats(){
     let found=0;
     for(let i=0;i<14;i++){
       const dt=new Date(); dt.setDate(dt.getDate()-i); const k=todayKey(dt);
-      const rec=DB.days[k]; if(!(rec&&rec.work&&rec.work.ev&&rec.work.ev.length)) continue;
-      const evs=rec.work.ev;
-      const wc=workCalc(evs, k===tk?Date.now():evs[evs.length-1][1]);
+      const rec=DB.days[k]; if(!rec) continue;
+      const evs=(rec.work&&rec.work.ev)||[];
+      if(!evs.length && !rec.workAdj) continue;
+      const wc=dayWC(rec,k);
+      if(!evs.length){ const tr0=document.createElement('tr');
+        tr0.innerHTML='<td>'+(dt.getMonth()+1)+'/'+dt.getDate()+'('+['日','月','火','水','木','金','土'][dt.getDay()]+')</td><td>—</td><td>手動</td><td>'+(fmtH(wc.breakMs)||'0')+'</td><td><b>'+(fmtH(wc.workMs)||'0')+'</b></td>';
+        lg.appendChild(tr0); found++; continue; }
       const first=evs[0][1];
       let endTs=null; evs.forEach(([t,at])=>{ if(t==='end') endTs=at; });
       const isTodayRow=(k===tk);
