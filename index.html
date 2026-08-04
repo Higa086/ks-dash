@@ -250,6 +250,7 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <div class="small" id="editWork" style="margin-top:8px"></div>
     <div class="small" style="margin-top:8px">カテゴリ別時間（分）— 数値を直すと手動値に。空欄でOKすると自動計測に戻る</div>
     <div id="editCats"></div>
+    <div class="small" id="editCatSum" style="margin-top:6px"></div>
     <div class="small">メモ</div>
     <textarea id="editMemo" rows="2" placeholder="この日のメモ" oninput="saveEditMemoLite()" onchange="saveEditMemo()"></textarea>
   </div>
@@ -996,7 +997,25 @@ function renderEditor(k){
       };
       ec2.appendChild(row);
     });
+    const sumEl=document.getElementById('editCatSum');
+    if(sumEl){
+      const sumMin=CATS.concat([CAT_UNK]).reduce((s,c)=>s+Math.round((cc2.perCat[c.id]||0)/60000),0);
+      const wMin=Math.round(wcE.workMs/60000);
+      const diff=sumMin-wMin;
+      if(diff===0){
+        sumEl.innerHTML='カテゴリ合計 <b>'+sumMin+'分</b> ＝ 実働 '+wMin+'分　✓一致';
+      } else {
+        sumEl.innerHTML='カテゴリ合計 <b>'+sumMin+'分</b> ／ 実働 <b>'+wMin+'分</b>　'+
+          '<span style="color:var(--accent)">（'+(diff>0?'+':'')+diff+'分ズレ）</span> '+
+          '<button class="btn ghost" style="margin-top:4px; padding:4px 10px; font-size:12px" onclick="syncWorkToCat(\''+k+'\','+sumMin+')">実働を'+sumMin+'分に合わせる</button>';
+      }
+    }
   }
+}
+function syncWorkToCat(k,mins){
+  const r=day(k); r.workAdj=r.workAdj||{}; r.workAdj.w=mins;
+  touch(r); save(); renderEditor(k); renderWeek(); renderCal(); renderStats();
+  toast('実働を'+mins+'分に合わせました');
 }
 function editPages(n){ if(!selKey)return; const r=day(selKey); r.pages=Math.max(0,Math.round(((r.pages||0)+n)*2)/2); if(n>0&&!r.checks.manga)r.checks.manga=true; touch(r); save(); renderCal(); renderEditor(selKey); renderAll(); }
 function saveEditMemo(){ if(!selKey)return; const r=day(selKey); r.memo=document.getElementById('editMemo').value; touch(r); save(); renderCal(); }
