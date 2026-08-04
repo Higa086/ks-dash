@@ -155,6 +155,11 @@ th{color:var(--sub); font-weight:600;}
 .titem.done .tbox{background:var(--ok); border-color:var(--ok);}
 .titem .tx{flex:1;}
 .titem.done .tx{color:var(--sub); text-decoration:line-through; text-decoration-color:var(--dim);}
+.tsec{margin-bottom:12px;}
+.tsechd{font-size:12px; font-weight:700; color:var(--sub); padding:3px 0; border-bottom:1.5px solid var(--line); margin-bottom:2px; display:flex; justify-content:space-between;}
+.tsecbody{min-height:34px;}
+.tsecbody.empty::after{content:"（ここへドラッグ）"; font-size:11px; color:var(--dim); display:block; padding:8px 2px;}
+.tarch{font-size:10px; border:1px solid var(--dim); color:var(--sub); border-radius:6px; padding:0 5px; flex:none;}
 .ttag{font-size:10px; color:var(--blue); border:1px solid var(--blue); border-radius:6px; padding:0 5px; flex:none;}
 .tbtn{border:none; background:none; color:var(--sub); font-size:13px; padding:3px 4px; cursor:pointer; flex:none; line-height:1;}
 .tbtn:active{color:var(--accent);}
@@ -264,14 +269,30 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
       <input type="text" id="todoInput" placeholder="タスクを追加（Enterで確定）" style="margin-top:0">
       <button class="btn" style="margin-top:0; white-space:nowrap; flex:none" onclick="addTodo()">追加</button>
     </div>
-    <div id="todoOpen" style="margin-top:10px"></div>
+    <div id="todoSections" style="margin-top:10px"></div>
     <div class="small" id="todoDoneTitle" style="margin-top:14px"></div>
     <div id="todoDone"></div>
-    <div class="small" style="margin-top:10px">□タップで完了（下にスライド）・文字タップで編集（全部消すと削除）・右端の⠿をドラッグで並べ替え。月が替わると未完了は持ち越し、完了分はアーカイブへ。</div>
+    <div class="small" style="margin-top:10px">□タップで完了・文字タップで編集画面・右端の⠿をドラッグで並べ替え（欄をまたぐと分類が変わります）。月が替わると未完了は持ち越し、完了分はアーカイブへ。</div>
   </div>
   <div class="card">
-    <h2>月別アーカイブ（完了タスク）</h2>
+    <h2>月別アーカイブ</h2>
     <div id="todoArchive" class="small"></div>
+  </div>
+  <div id="todoModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:50; align-items:center; justify-content:center; padding:16px;">
+    <div class="card" style="max-width:460px; width:100%; margin:0; max-height:86vh; overflow:auto;">
+      <h2>タスクの編集</h2>
+      <textarea id="tmText" rows="3" style="margin-top:4px"></textarea>
+      <div class="small" style="margin-top:10px">分類</div>
+      <div class="modes" id="tmGroup"></div>
+      <div class="small" style="margin-top:10px">状態</div>
+      <div class="modes" id="tmState"></div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:14px">
+        <button class="btn" onclick="tmSave()">保存</button>
+        <button class="btn ghost" onclick="tmClose()">キャンセル</button>
+        <button class="btn ghost" style="border-color:var(--accent); color:var(--accent)" onclick="tmDelete()">削除</button>
+      </div>
+      <div class="small" id="tmInfo" style="margin-top:10px"></div>
+    </div>
   </div>
 </div>
 
@@ -1401,43 +1422,68 @@ function renderStats(){
 }
 
 // ================= render: todo =================
+const TGROUPS=[['work','仕事（稼ぎ）'],['life','私生活（QOL）'],['other','その他']];
+function tgLabel(g){ const f=TGROUPS.find(x=>x[0]===g); return f?f[1]:'その他'; }
 function escT(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
 function addTodo(){
   const inp=document.getElementById('todoInput'); const t=inp.value.trim(); if(!t) return;
   const id='t'+Date.now()+Math.random().toString(36).slice(2,6);
-  const mo=Math.max(0,...Object.values(DB.todos).filter(x=>!x.done&&!x.del).map(x=>x.ord||0));
-  DB.todos[id]={text:t, created:todayKey().slice(0,7), done:null, u:Date.now(), ord:mo+1};
+  const mo=Math.max(0,...Object.values(DB.todos).filter(x=>!x.done&&!x.del&&!x.arch).map(x=>x.ord||0));
+  DB.todos[id]={text:t, created:todayKey().slice(0,7), done:null, u:Date.now(), ord:mo+1, grp:'other'};
   inp.value=''; save(); renderTodo();
 }
-function toggleTodo(id){ if(Date.now()-(window._jd||0)<400) return; const it=DB.todos[id]; if(!it||it.del) return;
+function toggleTodo(id){ const it=DB.todos[id]; if(!it||it.del) return;
   it.done=it.done?null:todayKey();
-  if(!it.done){ const mo=Math.max(0,...Object.values(DB.todos).filter(x=>!x.done&&!x.del).map(x=>x.ord||0)); it.ord=mo+1; }
+  if(!it.done){ const mo=Math.max(0,...Object.values(DB.todos).filter(x=>!x.done&&!x.del&&!x.arch).map(x=>x.ord||0)); it.ord=mo+1; }
   it.u=Date.now(); save(); renderTodo(); }
+let tmId=null;
 function editTodo(id){ if(Date.now()-(window._jd||0)<400) return; const it=DB.todos[id]; if(!it||it.del) return;
-  const t=prompt('タスクを編集（全部消してOKで削除）', it.text); if(t===null) return;
-  const v=t.trim();
-  if(!v){ if(confirm('「'+it.text+'」を削除しますか？')){ it.del=1; it.u=Date.now(); save(); renderTodo(); toast('削除しました'); } return; }
-  it.text=v; it.u=Date.now(); save(); renderTodo(); }
-function delTodo(id){ const it=DB.todos[id]; if(!it) return;
-  if(!confirm('「'+it.text+'」を削除しますか？（アーカイブからも消えます）')) return;
-  it.del=1; it.u=Date.now(); save(); renderTodo(); toast('削除しました'); }
-function moveTodo(id,dir){
-  const list=Object.entries(DB.todos||{}).filter(([,t])=>!t.done&&!t.del)
-    .sort((a,b)=>((a[1].ord!=null?a[1].ord:a[1].u))-((b[1].ord!=null?b[1].ord:b[1].u)));
-  const i=list.findIndex(([k])=>k===id); if(i<0) return;
-  const j=i+dir; if(j<0||j>=list.length) return;
-  list.forEach(([k,t],idx)=>{ t.ord=idx+1; });
-  const a=list[i][1], b=list[j][1];
-  const tmp=a.ord; a.ord=b.ord; b.ord=tmp;
-  a.u=Date.now(); b.u=Date.now();
-  save(); renderTodo();
+  tmId=id;
+  document.getElementById('tmText').value=it.text;
+  const g=document.getElementById('tmGroup'); g.innerHTML='';
+  TGROUPS.forEach(([gid,label])=>{
+    const el=document.createElement('div'); el.className='chip mini'+(((it.grp||'other')===gid)?' on':'');
+    el.dataset.g=gid; el.textContent=label;
+    el.onclick=()=>{ [...g.children].forEach(x=>x.classList.toggle('on',x.dataset.g===gid)); };
+    g.appendChild(el);
+  });
+  const s=document.getElementById('tmState'); s.innerHTML='';
+  const mk=(label,on,fn)=>{ const el=document.createElement('div'); el.className='chip mini'+(on?' on':''); el.textContent=label; el.onclick=fn; s.appendChild(el); };
+  mk(it.done?'完了 ✓':'未完了', !!it.done, ()=>{ toggleTodo(id); editTodo(id); });
+  mk(it.arch?'アーカイブ済':'アーカイブする', !!it.arch, ()=>{ tmArchive(); });
+  document.getElementById('tmInfo').textContent=
+    '作成: '+(it.created||'-')+(it.done?(' ／ 完了: '+it.done):'')+(it.arch?(' ／ アーカイブ: '+it.arch):'');
+  document.getElementById('todoModal').style.display='flex';
 }
+function tmClose(){ document.getElementById('todoModal').style.display='none'; tmId=null; }
+function tmSave(){
+  if(!tmId) return; const it=DB.todos[tmId]; if(!it) return;
+  const v=document.getElementById('tmText').value.trim();
+  if(!v){ if(!confirm('本文が空です。削除しますか？')) return; it.del=1; }
+  else it.text=v;
+  const on=document.querySelector('#tmGroup .chip.on');
+  it.grp=on?on.dataset.g:'other';
+  it.u=Date.now(); save(); tmClose(); renderTodo(); toast('保存しました');
+}
+function tmDelete(){
+  if(!tmId) return; const it=DB.todos[tmId]; if(!it) return;
+  if(!confirm('「'+it.text+'」を削除しますか？')) return;
+  it.del=1; it.u=Date.now(); save(); tmClose(); renderTodo(); toast('削除しました');
+}
+function tmArchive(){
+  if(!tmId) return; const it=DB.todos[tmId]; if(!it) return;
+  if(it.arch){ it.arch=null; toast('アーカイブから戻しました'); }
+  else { it.arch=todayKey(); toast('アーカイブしました'); }
+  it.u=Date.now(); save(); renderTodo(); editTodo(tmId);
+}
+function archiveMonth(it){ return it.arch ? it.arch.slice(0,7) : (it.done? it.done.slice(0,7) : todayKey().slice(0,7)); }
 function todoRow(id,it,ym,ctx){
   const el=document.createElement('div'); el.className='titem'+(it.done?' done':''); el.dataset.id=id;
   const carry=(!it.done && it.created && it.created<ym)?'<span class="ttag">'+parseInt(it.created.slice(5))+'月〜</span>':'';
-  const handle=(ctx==='open')?'<div class="thandle" title="ドラッグで並べ替え">⠿</div>':'';
+  const archTag=(ctx==='arch'&&!it.done)?'<span class="tarch">未完了</span>':'';
+  const handle=(ctx==='open')?'<div class="thandle" title="ドラッグで並べ替え・分類移動">⠿</div>':'';
   el.innerHTML='<div class="tbox" onclick="toggleTodo(\''+id+'\')">'+(it.done?'✓':'')+'</div>'+
-    '<div class="tx" onclick="editTodo(\''+id+'\')" title="タップで編集">'+escT(it.text)+'</div>'+carry+handle;
+    '<div class="tx" onclick="editTodo(\''+id+'\')" title="タップで編集">'+escT(it.text)+'</div>'+carry+archTag+handle;
   if(ctx==='open') bindDrag(el);
   return el;
 }
@@ -1450,11 +1496,19 @@ function bindDrag(el){
     if(navigator.vibrate) navigator.vibrate(20);
     _touchBlock=ev=>ev.preventDefault();
     document.addEventListener('touchmove',_touchBlock,{passive:false});
+    const bodies=[...document.querySelectorAll('.tsecbody')];
     const onMove=ev=>{
-      const container=el.parentNode; if(!container) return;
-      const rows=[...container.querySelectorAll('.titem:not(.dragging)')];
+      let target=null;
+      for(const b of bodies){ const r=b.getBoundingClientRect();
+        if(ev.clientY>=r.top-14 && ev.clientY<=r.bottom+14){ target=b; break; } }
+      if(!target){ let best=null,bd=1e9;
+        for(const b of bodies){ const r=b.getBoundingClientRect();
+          const d=Math.min(Math.abs(ev.clientY-r.top),Math.abs(ev.clientY-r.bottom));
+          if(d<bd){bd=d;best=b;} } target=best; }
+      if(!target) return;
+      const rows=[...target.querySelectorAll('.titem:not(.dragging)')];
       const after=rows.find(r=>ev.clientY < r.getBoundingClientRect().top + r.offsetHeight/2);
-      if(after) container.insertBefore(el,after); else container.appendChild(el);
+      if(after) target.insertBefore(el,after); else target.appendChild(el);
     };
     const end=()=>{
       document.removeEventListener('pointermove',onMove);
@@ -1463,15 +1517,15 @@ function bindDrag(el){
       if(_touchBlock){ document.removeEventListener('touchmove',_touchBlock); _touchBlock=null; }
       window._jd=Date.now();
       el.classList.remove('dragging');
-      const container=el.parentNode;
-      if(container){
-        [...container.querySelectorAll('.titem')].forEach((r,idx)=>{
+      let n=1;
+      document.querySelectorAll('.tsecbody').forEach(b=>{
+        const g=b.dataset.g;
+        [...b.querySelectorAll('.titem')].forEach(r=>{
           const tid=r.dataset.id;
-          if(tid&&DB.todos[tid]){ DB.todos[tid].ord=idx+1; DB.todos[tid].u=Date.now(); }
+          if(tid&&DB.todos[tid]){ DB.todos[tid].ord=n++; DB.todos[tid].grp=g; DB.todos[tid].u=Date.now(); }
         });
-        save();
-      }
-      renderTodo();
+      });
+      save(); renderTodo();
     };
     document.addEventListener('pointermove',onMove);
     document.addEventListener('pointerup',end);
@@ -1483,23 +1537,36 @@ function renderTodo(){
   const ym=todayKey().slice(0,7);
   el.textContent='TODO（'+parseInt(ym.slice(0,4))+'年'+parseInt(ym.slice(5))+'月）';
   const all=Object.entries(DB.todos||{}).filter(([,t])=>!t.del);
-  const open=all.filter(([,t])=>!t.done).sort((a,b)=>((a[1].ord!=null?a[1].ord:a[1].u))-((b[1].ord!=null?b[1].ord:b[1].u)));
-  const doneThis=all.filter(([,t])=>t.done&&t.done.slice(0,7)===ym).sort((a,b)=>b[1].u-a[1].u);
-  const o=document.getElementById('todoOpen'); o.innerHTML='';
-  if(!open.length) o.innerHTML='<div class="small">未完了タスクなし。身軽です。</div>';
-  open.forEach(([id,it])=>o.appendChild(todoRow(id,it,ym,'open')));
+  const open=all.filter(([,t])=>!t.done&&!t.arch)
+    .sort((a,b)=>((a[1].ord!=null?a[1].ord:a[1].u))-((b[1].ord!=null?b[1].ord:b[1].u)));
+  const doneThis=all.filter(([,t])=>t.done&&!t.arch&&t.done.slice(0,7)===ym).sort((a,b)=>b[1].u-a[1].u);
+  const sec=document.getElementById('todoSections'); sec.innerHTML='';
+  TGROUPS.forEach(([gid,label])=>{
+    const list=open.filter(([,t])=>(t.grp||'other')===gid);
+    const wrap=document.createElement('div'); wrap.className='tsec';
+    const hd=document.createElement('div'); hd.className='tsechd';
+    hd.innerHTML='<span>'+label+'</span><span>'+list.length+'件</span>';
+    const body=document.createElement('div'); body.className='tsecbody'+(list.length?'':' empty'); body.dataset.g=gid;
+    list.forEach(([id,it])=>body.appendChild(todoRow(id,it,ym,'open')));
+    wrap.appendChild(hd); wrap.appendChild(body); sec.appendChild(wrap);
+  });
   document.getElementById('todoDoneTitle').textContent=doneThis.length?('今月完了 '+doneThis.length+'件'):'';
   const dn=document.getElementById('todoDone'); dn.innerHTML='';
   doneThis.forEach(([id,it])=>dn.appendChild(todoRow(id,it,ym,'done')));
   const arch={};
-  all.forEach(([id,t])=>{ if(t.done){ const m=t.done.slice(0,7); if(m<ym){ (arch[m]=arch[m]||[]).push([id,t]); } } });
+  all.forEach(([id,t])=>{
+    const isArch=!!t.arch;
+    const isOldDone=(!t.arch && t.done && t.done.slice(0,7)<ym);
+    if(isArch||isOldDone){ const m=archiveMonth(t); (arch[m]=arch[m]||[]).push([id,t]); }
+  });
   const ael=document.getElementById('todoArchive'); ael.innerHTML='';
   const months=Object.keys(arch).sort().reverse();
-  if(!months.length){ ael.textContent='まだありません（月が替わると完了分がここに残ります）'; }
+  if(!months.length){ ael.textContent='まだありません（編集画面からアーカイブ、または月が替わると完了分がここに入ります）'; }
   months.forEach(m=>{
+    const undone=arch[m].filter(x=>!x[1].done).length;
     const det=document.createElement('details'); det.className='arch';
-    det.innerHTML='<summary>'+parseInt(m.slice(0,4))+'年'+parseInt(m.slice(5))+'月 — 完了 '+arch[m].length+'件</summary>';
-    arch[m].sort((a,b)=>b[1].u-a[1].u).forEach(([id,it])=>det.appendChild(todoRow(id,it,ym,'done')));
+    det.innerHTML='<summary>'+parseInt(m.slice(0,4))+'年'+parseInt(m.slice(5))+'月 — '+arch[m].length+'件'+(undone?('（未完了 '+undone+'）'):'')+'</summary>';
+    arch[m].sort((a,b)=>b[1].u-a[1].u).forEach(([id,it])=>det.appendChild(todoRow(id,it,ym,'arch')));
     ael.appendChild(det);
   });
 }
