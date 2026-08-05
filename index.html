@@ -1476,7 +1476,7 @@ function tmArchive(){
   else { it.arch=todayKey(); toast('アーカイブしました'); }
   it.u=Date.now(); save(); renderTodo(); editTodo(tmId);
 }
-function archiveMonth(it){ return it.arch ? it.arch.slice(0,7) : (it.done? it.done.slice(0,7) : todayKey().slice(0,7)); }
+function archiveMonth(it){ return it.created || (it.done? it.done.slice(0,7) : todayKey().slice(0,7)); }
 function todoRow(id,it,ym,ctx){
   const el=document.createElement('div'); el.className='titem'+(it.done?' done':''); el.dataset.id=id;
   const carry=(!it.done && it.created && it.created<ym)?'<span class="ttag">'+parseInt(it.created.slice(5))+'月〜</span>':'';
@@ -1565,7 +1565,7 @@ function renderTodo(){
   months.forEach(m=>{
     const undone=arch[m].filter(x=>!x[1].done).length;
     const det=document.createElement('details'); det.className='arch';
-    det.innerHTML='<summary>'+parseInt(m.slice(0,4))+'年'+parseInt(m.slice(5))+'月 — '+arch[m].length+'件'+(undone?('（未完了 '+undone+'）'):'')+'</summary>';
+    det.innerHTML='<summary>'+parseInt(m.slice(0,4))+'年'+parseInt(m.slice(5))+'月に作成 — '+arch[m].length+'件'+(undone?('（未完了 '+undone+'）'):'')+'</summary>';
     arch[m].sort((a,b)=>b[1].u-a[1].u).forEach(([id,it])=>det.appendChild(todoRow(id,it,ym,'arch')));
     ael.appendChild(det);
   });
