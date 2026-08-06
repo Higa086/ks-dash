@@ -885,7 +885,7 @@ function repairWork(){
     if(!(rec&&rec.work&&rec.work.ev&&rec.work.ev.length)) continue;
     const evs=rec.work.ev;
     if(evs[evs.length-1][0]!=='end'){
-      // その日の23:59:59で締める（日跨ぎ作業の消失を防ぐ）
+      // 3時の切り替わり(02:59:59)で締める（日跨ぎ作業の消失を防ぐ）
       const eod=new Date(dt); eod.setDate(eod.getDate()+1); eod.setHours(2,59,59,0);
       const t=Math.max(evs[evs.length-1][1], Math.min(eod.getTime(), Date.now()));
       evs.push(['end', t]);
@@ -893,7 +893,7 @@ function repairWork(){
     }
   }
   if(changed){ persist(); schedulePush();
-    if(fixed&&typeof toast==='function') setTimeout(()=>toast('前日の勤務を23:59で自動終了しました'),1200); }
+    if(fixed&&typeof toast==='function') setTimeout(()=>toast('前日の勤務を3時の切り替わりで自動終了しました'),1200); }
 }
 function renderWork(d){
   const wb=document.getElementById('workBtns'); if(!wb) return;
