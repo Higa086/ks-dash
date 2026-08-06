@@ -515,6 +515,7 @@ function schedulePush(){ if(!syncCfg()) return;
   clearTimeout(pushTimer); pushTimer=setTimeout(pushNow, 700); }
 async function pushNow(){
   const url=syncUrl(); if(!url) return;
+  try{ const rm=await fetch(url,{cache:'no-store'}).then(x=>x.json()); mergeRemote(rm); }catch(e){}
   const body=JSON.stringify(payload());
   const cmp=JSON.stringify([DB.days,DB.weeks,payload().st]);
   if(cmp===lastPushed) return;
@@ -522,11 +523,37 @@ async function pushNow(){
     if(r.ok){ lastPushed=cmp; setDot('on','同期中'); } else setDot('err','エラー');
   }catch(e){ setDot('err','オフライン'); }
 }
+function mergeEv(a,b){
+  const seen=new Set(), out=[];
+  (a||[]).concat(b||[]).forEach(e=>{ const key=e[0]+'@'+e[1];
+    if(!seen.has(key)){ seen.add(key); out.push(e); } });
+  out.sort((x,y)=>x[1]-y[1]);
+  return out;
+}
+function mergeDay(l,r){
+  if(!l) return r; if(!r) return l;
+  const newer=((r.u||0)>(l.u||0))?r:l, older=(newer===r)?l:r;
+  const out=Object.assign({}, older, newer);
+  const lw=(l.work&&l.work.ev)||[], rw=(r.work&&r.work.ev)||[];
+  if(lw.length||rw.length) out.work={ev:mergeEv(lw,rw)};
+  const lc=(l.cat&&l.cat.ev)||[], rc=(r.cat&&r.cat.ev)||[];
+  if(lc.length||rc.length) out.cat={ev:mergeEv(lc,rc)};
+  if(newer.workAdj==null && older.workAdj!=null) out.workAdj=older.workAdj;
+  if(newer.catAdj==null && older.catAdj!=null) out.catAdj=older.catAdj;
+  out.u=Math.max(l.u||0, r.u||0);
+  return out;
+}
+function sameDay(a,b){ return JSON.stringify(a)===JSON.stringify(b); }
 function mergeRemote(rm){
   if(!rm) return;
   let changed=false;
   DB.todos=DB.todos||{};
-  ['days','weeks','todos'].forEach(part=>{
+  const RD=rm.days||{};
+  Object.keys(RD).forEach(k=>{
+    const merged=mergeDay(DB.days[k], RD[k]);
+    if(!sameDay(DB.days[k], merged)){ DB.days[k]=merged; changed=true; }
+  });
+  ['weeks','todos'].forEach(part=>{
     const R=rm[part]||{};
     Object.keys(R).forEach(k=>{
       const l=DB[part][k], r=R[k];
@@ -1613,6 +1640,7 @@ if(cfg){ document.getElementById('cfgDb').value=cfg.db; document.getElementById(
   fetchAndMerge().then(startStream);
 } else setDot('','ローカル');
 setInterval(()=>{ repairWork(); renderToday(); },60000);
+setInterval(()=>{ if(syncCfg()) fetchAndMerge(); },60000);
 // 横スワイプでタブ遷移
 (function(){
   const order=['today','cal','week','stats','todo','rules'];
