@@ -91,6 +91,13 @@ textarea,input[type=text],select{width:100%; border:1.5px solid var(--line); bor
 .tab.on{color:var(--accent);}
 .tab .ic{font-size:18px; display:block; filter:grayscale(1); opacity:.5; transition:all .15s;}
 .tab.on .ic{filter:none; opacity:1;}
+.gear{cursor:pointer; font-size:15px; opacity:.55; margin-left:6px;}
+.dirow{display:flex; gap:8px; padding:9px 2px; border-bottom:1px solid var(--line); cursor:pointer; align-items:baseline;}
+.dirow .dd{min-width:62px; font-weight:700; font-size:12.5px;}
+.dirow .pv{flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:12.5px; color:var(--sub);}
+.dirow.empty .pv{opacity:.4;}
+.phgrid{display:flex; gap:6px; flex-wrap:wrap; margin:8px 0;}
+.phgrid img{width:31.5%; border-radius:8px; cursor:pointer; border:1px solid var(--line);}
 .page{display:none;} .page.on{display:block;}
 h2{font-size:14px; margin-bottom:6px; color:var(--sub); font-weight:700;}
 table{width:100%; border-collapse:collapse; font-size:12.5px;}
@@ -171,12 +178,13 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
 <div class="header">
   <div><h1 id="dateTitle">—</h1><div class="sub" id="phaseLabel">—</div></div>
   <div style="text-align:right"><div class="sub" id="clock">--:--</div>
-  <span class="syncdot" id="syncDot" onclick="showPage('rules')">⚪ ローカル</span></div>
+  <span class="syncdot" id="syncDot" onclick="showPage('rules')">⚪ ローカル</span><span class="gear" onclick="showPage('rules')" title="原則・設定">⚙</span></div>
 </div>
 
 <!-- ============ 今日 ============ -->
 <div class="page on" id="page-today">
   <div id="teireiBanner"></div>
+  <div class="small" id="judgeLine" style="text-align:right; margin:0 2px 4px; color:var(--sub)"></div>
   <div class="card">
     <h2>今日のモード宣言 <span class="small">(宣言した休みはサボりではなく計画)</span></h2>
     <div class="modes" id="modeChips"></div>
@@ -258,6 +266,7 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <div class="small" id="editCatSum" style="margin-top:6px"></div>
     <div class="small">メモ</div>
     <textarea id="editMemo" rows="2" placeholder="この日のメモ" oninput="saveEditMemoLite()" onchange="saveEditMemo()"></textarea>
+    <button class="btn ghost" id="edDiaryBtn" style="margin-top:8px">📖 この日の日記を開く</button>
   </div>
 </div>
 
@@ -344,10 +353,8 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <h2>習慣の達成率（直近30日）<span class="small">休み宣言日は未実施でも減点なし・実施分は加点</span></h2>
     <div id="statRows"></div>
   </div>
-</div>
 
-<!-- ============ 週 ============ -->
-<div class="page" id="page-week">
+<!-- ============ 週（統計に統合） ============ -->
   <div class="card">
     <div class="calhead">
       <button class="navbtn" onclick="wkMove(1)">‹</button>
@@ -462,13 +469,64 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
   </div>
 </div>
 
+<!-- ============ 日記 ============ -->
+<div class="page" id="page-diary">
+  <div class="card">
+    <div class="calhead">
+      <button class="navbtn" onclick="diMove(-1)">‹</button>
+      <b id="diaryTitle">—</b>
+      <button class="navbtn" onclick="diMove(1)">›</button>
+    </div>
+    <div class="small" id="diarySyncNote" style="margin:2px 0 4px"></div>
+    <div id="diaryList"></div>
+  </div>
+  <div class="card" id="diaryEd" style="display:none">
+    <h2 id="diaryEdTitle">—</h2>
+    <textarea id="diaryText" rows="8" placeholder="日記（1行でもOK）" oninput="diaryLite()" onchange="saveDiaryText()"></textarea>
+    <div id="diaryPhotos" class="phgrid"></div>
+    <button class="btn ghost" onclick="document.getElementById('diaryPhotoFile').click()">📷 写真を追加</button>
+    <input type="file" id="diaryPhotoFile" accept="image/*" style="display:none" onchange="addDiaryPhoto(this)">
+    <button class="btn ghost" onclick="insertDiarySkeleton()">この日の実績を挿入</button>
+    <div class="small" id="diaryEdNote" style="margin-top:6px">写真は自動で縮小して保存。写真タップで削除。</div>
+  </div>
+</div>
+
+<!-- ============ ログ（経験の記録） ============ -->
+<div class="page" id="page-log">
+  <div class="card">
+    <div class="calhead">
+      <button class="navbtn" onclick="lgMove(-1)">‹</button>
+      <b id="logTitle">—</b>
+      <button class="navbtn" onclick="lgMove(1)">›</button>
+    </div>
+    <div class="modes" id="logCatChips" style="margin-top:6px"></div>
+    <div id="logList"></div>
+  </div>
+  <div class="card">
+    <h2 id="logFormTitle">記録を追加</h2>
+    <div class="modes" id="logFormCats"></div>
+    <input type="text" id="logName" placeholder="タイトル（作品名・店名・場所）">
+    <div id="logStars" style="font-size:22px; letter-spacing:5px; margin:6px 0"></div>
+    <input type="text" id="logMemo" placeholder="一言メモ（任意）">
+    <input type="date" id="logDate" style="margin-top:6px">
+    <div id="logPhotoWrap" class="phgrid"></div>
+    <div style="margin-top:6px">
+      <button class="btn ghost" onclick="document.getElementById('logPhotoFile').click()">📷 写真</button>
+      <input type="file" id="logPhotoFile" accept="image/*" style="display:none" onchange="pickLogPhoto(this)">
+      <button class="btn" onclick="saveLogItem()">保存</button>
+      <button class="btn ghost" id="logCancelBtn" style="display:none" onclick="resetLogForm()">キャンセル</button>
+      <button class="btn ghost" id="logDelBtn" style="display:none; color:var(--accent)" onclick="delLogItem()">削除</button>
+    </div>
+  </div>
+</div>
+
 <div class="tabs">
   <div class="tab on" data-page="today" onclick="showPage('today')"><span class="ic">☀</span>今日</div>
   <div class="tab" data-page="cal" onclick="showPage('cal')"><span class="ic">📅</span>カレンダー</div>
-  <div class="tab" data-page="week" onclick="showPage('week')"><span class="ic">▦</span>週</div>
+  <div class="tab" data-page="diary" onclick="showPage('diary')"><span class="ic">📖</span>日記</div>
   <div class="tab" data-page="stats" onclick="showPage('stats')"><span class="ic">📈</span>統計</div>
   <div class="tab" data-page="todo" onclick="showPage('todo')"><span class="ic">☑</span>TODO</div>
-  <div class="tab" data-page="rules" onclick="showPage('rules')"><span class="ic">✦</span>原則</div>
+  <div class="tab" data-page="log" onclick="showPage('log')"><span class="ic">🎬</span>ログ</div>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -513,14 +571,23 @@ function payload(){
 }
 function schedulePush(){ if(!syncCfg()) return;
   clearTimeout(pushTimer); pushTimer=setTimeout(pushNow, 700); }
+let lastRemoteT=0;
 async function pushNow(){
   const url=syncUrl(); if(!url) return;
-  try{ const rm=await fetch(url,{cache:'no-store'}).then(x=>x.json()); mergeRemote(rm); }catch(e){}
-  const body=JSON.stringify(payload());
-  const cmp=JSON.stringify([DB.days,DB.weeks,payload().st]);
+  // 送信前チェック: サーバーの更新時刻(数十バイト)だけ先に確認
+  let rt=null;
+  try{ rt=await fetch(url.replace('.json','/t.json'),{cache:'no-store'}).then(x=>x.json()); }
+  catch(e){ setDot('err','オフライン'); return; }  // 確認できない時は送らない（古いデータでの上書き防止）
+  if(rt!=null && rt!==lastRemoteT){
+    try{ const rm=await fetch(url,{cache:'no-store'}).then(x=>x.json()); mergeRemote(rm); if(rm&&rm.t) lastRemoteT=rm.t; }
+    catch(e){ setDot('err','オフライン'); return; }
+  }
+  const pl=payload();
+  const body=JSON.stringify(pl);
+  const cmp=JSON.stringify([DB.days,DB.weeks,pl.st]);
   if(cmp===lastPushed) return;
   try{ const r=await fetch(url,{method:'PATCH',body});
-    if(r.ok){ lastPushed=cmp; setDot('on','同期中'); } else setDot('err','エラー');
+    if(r.ok){ lastPushed=cmp; lastRemoteT=pl.t; setDot('on','同期中'); } else setDot('err','エラー');
   }catch(e){ setDot('err','オフライン'); }
 }
 function mergeEv(a,b){
@@ -571,7 +638,7 @@ function mergeRemote(rm){
 }
 async function fetchAndMerge(){
   const url=syncUrl(); if(!url) return;
-  try{ const r=await fetch(url); if(r.ok){ const d=await r.json(); mergeRemote(d); setDot('on','同期中'); pushNow(); } }
+  try{ const r=await fetch(url,{cache:'no-store'}); if(r.ok){ const d=await r.json(); mergeRemote(d); if(d&&d.t) lastRemoteT=d.t; setDot('on','同期中'); pushNow(); } }
   catch(e){ setDot('err','オフライン'); }
 }
 function startStream(){
@@ -581,11 +648,16 @@ function startStream(){
     ES=new EventSource(url);
     ES.addEventListener('put', e=>{
       try{ const m=JSON.parse(e.data);
-        if(m.path==='/' ){ if(m.data && m.data.from!==DEV) mergeRemote(m.data); if(m.data) setDot('on','同期中'); }
+        if(m.path==='/' ){ if(m.data && m.data.from!==DEV) mergeRemote(m.data); if(m.data&&m.data.t) lastRemoteT=m.data.t; if(m.data) setDot('on','同期中'); }
         else fetchAndMerge();
       }catch(err){}
     });
-    ES.addEventListener('patch', ()=>fetchAndMerge());
+    ES.addEventListener('patch', e=>{
+      try{ const m=JSON.parse(e.data);
+        if(m.path==='/' && m.data){ if(m.data.from!==DEV) mergeRemote(m.data); if(m.data.t) lastRemoteT=m.data.t; setDot('on','同期中'); }
+        else fetchAndMerge();
+      }catch(err){ fetchAndMerge(); }
+    });
     ES.onerror=()=>setDot('err','再接続中…');
     ES.onopen=()=>setDot('on','同期中');
   }catch(e){ setDot('err','非対応'); }
@@ -988,6 +1060,7 @@ function renderEditor(k){
   const rec=DB.days[k]||{mode:'normal',checks:{},pages:0,memo:''};
   const dt=new Date(k);
   document.getElementById('editTitle').textContent=dt.toLocaleDateString('ja-JP',{month:'long',day:'numeric',weekday:'short'})+' の記録';
+  const dbn=document.getElementById('edDiaryBtn'); if(dbn) dbn.onclick=()=>{ diCur=k.slice(0,7); showPage('diary'); openDiary(k); };
   const em=document.getElementById('editModes'); em.innerHTML='';
   MODES.forEach(m=>{
     const c=document.createElement('div'); c.className='chip mini'+(rec.mode===m.id?' on':'');
@@ -1019,10 +1092,16 @@ function renderEditor(k){
     '実働 <input type="number" min="0" id="editWorkW" style="width:80px; padding:4px 6px; margin:0" value="'+Math.round(wcE.workMs/60000)+'">'+(ovW?' <b>手動</b>':'')+
     '　休憩 <input type="number" min="0" id="editWorkB" style="width:80px; padding:4px 6px; margin:0" value="'+Math.round(wcE.breakMs/60000)+'">'+(ovB?' <b>手動</b>':'');
   const bind=(id,key)=>{ const el=document.getElementById(id); if(!el) return;
-    el.onchange=(e)=>{ const r=day(k); r.workAdj=r.workAdj||{};
-      const v=e.target.value.trim();
-      if(v===''){ delete r.workAdj[key]; if(!Object.keys(r.workAdj).length) delete r.workAdj; }
-      else r.workAdj[key]=Math.max(0,parseInt(v)||0);
+    const org=el.value;
+    el.onchange=(e)=>{ const r=day(k); const v=e.target.value.trim();
+      const label=(key==='w'?'実働':'休憩');
+      if(v===org){ return; }
+      if(v===''){ if(r.workAdj&&r.workAdj[key]!=null){ delete r.workAdj[key]; if(!Object.keys(r.workAdj).length) delete r.workAdj; }
+        else { return; } }
+      else {
+        if(!confirm(label+'を手動で '+v+'分 に上書きします。よろしいですか？\n（自動計測: '+org+'分）')){ e.target.value=org; return; }
+        r.workAdj=r.workAdj||{}; r.workAdj[key]=Math.max(0,parseInt(v)||0);
+      }
       touch(r); save(); renderEditor(k); renderWeek(); renderCal(); renderStats(); }; };
   bind('editWorkW','w'); bind('editWorkB','b');
   const ec2=document.getElementById('editCats');
@@ -1037,10 +1116,14 @@ function renderEditor(k){
       row.innerHTML='<div style="width:118px; flex:none">'+c.label+'</div>'+
         '<input type="number" min="0" style="width:84px; padding:4px 6px; margin:0" value="'+(min||'')+'">'+
         '<span class="small">分'+(ovr?'（手動）':'')+'</span>';
+      const orgV=String(min||'');
       row.querySelector('input').onchange=(e)=>{
-        const r=day(k); r.catAdj=r.catAdj||{};
         const v=e.target.value.trim();
-        if(v===''){ delete r.catAdj[c.id]; } else { r.catAdj[c.id]=Math.max(0,parseInt(v)||0); }
+        if(v===orgV) return;
+        const r=day(k);
+        if(v===''){ if(r.catAdj&&r.catAdj[c.id]!=null){ delete r.catAdj[c.id]; if(!Object.keys(r.catAdj).length) delete r.catAdj; } else return; }
+        else { if(!confirm(c.label+'を手動で '+v+'分 に上書きします。よろしいですか？\n（自動計測: '+orgV+'分）')){ e.target.value=orgV; return; }
+          r.catAdj=r.catAdj||{}; r.catAdj[c.id]=Math.max(0,parseInt(v)||0); }
         touch(r); save(); renderEditor(k); renderWeek(); renderStats();
       };
       ec2.appendChild(row);
@@ -1604,10 +1687,11 @@ function showPage(p){
   document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));
   document.getElementById('page-'+p).classList.add('on');
   document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x.dataset.page===p));
-  if(p==='week') renderWeek();
   if(p==='cal') renderCal();
-  if(p==='stats') renderStats();
+  if(p==='stats'){ renderStats(); renderWeek(); }
   if(p==='todo') renderTodo();
+  if(p==='diary') renderDiary();
+  if(p==='log') renderLog();
   window.scrollTo(0,0);
 }
 function toggleZaiseki(){ DB.settings.zaiseki=!DB.settings.zaiseki; DB.settings.zu=Date.now(); save(); renderToday(); }
@@ -1628,10 +1712,262 @@ setInterval(()=>{ const n=new Date();
 },10000);
 document.getElementById('clock').textContent=new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
 
+// ================= 日記・ログ（別ノード・遅延読み込み） =================
+// データ置き場: /r/{code}-j/ 配下。本体同期(60秒ポーリング/ストリーム)には一切載らない。
+//   日記本文: d/{YYYY-MM}/{YYYY-MM-DD} = {t:本文, u:更新時刻, phc:写真枚数}
+//   日記写真: p/{YYYY-MM}/{YYYY-MM-DD}/{id} = dataURL（日を開いた時だけ取得）
+//   ログ:     x/{YYYY-MM}/{id} = {d:日付, c:分類, n:名前, r:星, m:メモ, u, ph, del}
+//   ログ写真: xp/{YYYY-MM}/{id} = dataURL（編集で開いた時だけ取得）
+const DKEY='ks_diary_v1';
+let DJ=(()=>{ try{ return JSON.parse(localStorage.getItem(DKEY))||{}; }catch(e){ return {}; } })();
+DJ.d=DJ.d||{}; DJ.x=DJ.x||{}; DJ.dirty=DJ.dirty||{};
+function dsave(){ try{ localStorage.setItem(DKEY, JSON.stringify(DJ)); }catch(e){} }
+function diaryBase(){ const c=syncCfg(); if(!c) return null;
+  return c.db.trim().replace(/\/+$/,'')+'/r/'+encodeURIComponent(c.code.trim())+'-j'; }
+const PH={};
+let diCur=null, lgCur=null, diOpen=null, diaryTmr=null;
+let lgEdit=null, lgPhoto=null, lgRating=0, lgCat='other', lgFilter='all';
+const LOGCATS=[['movie','🎬 映画'],['anime','📺 アニメ'],['book','📚 漫画・本'],['place','🗺️ 場所・おでかけ'],['food','🍽️ ごはん'],['other','✨ その他']];
+
+async function dGET(p){ const b=diaryBase(); if(!b) return null;
+  try{ const r=await fetch(b+'/'+p+'.json',{cache:'no-store'}); return r.ok? await r.json(): null; }catch(e){ return null; } }
+async function dPUT(p,val){ const b=diaryBase(); if(!b) return false;
+  try{ const r=await fetch(b+'/'+p+'.json',{method:'PUT',body:JSON.stringify(val)}); return r.ok; }catch(e){ return false; } }
+async function dDEL(p){ const b=diaryBase(); if(!b) return false;
+  try{ const r=await fetch(b+'/'+p+'.json',{method:'DELETE'}); return r.ok; }catch(e){ return false; } }
+function dEsc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+function diMergeMonth(store,ym,remote){ const loc=store[ym]=store[ym]||{}; let ch=false;
+  Object.keys(remote||{}).forEach(k=>{ const l=loc[k], r=remote[k];
+    if(!l || (r.u||0)>(l.u||0)){ loc[k]=r; ch=true; } });
+  return ch; }
+async function flushDiaryDirty(){
+  for(const p of Object.keys(DJ.dirty)){
+    const seg=p.split('/'); let val=null;
+    if(seg[0]==='d') val=(DJ.d[seg[1]]||{})[seg[2]];
+    if(seg[0]==='x') val=(DJ.x[seg[1]]||{})[seg[2]];
+    if(val==null){ delete DJ.dirty[p]; continue; }
+    if(await dPUT(p,val)) delete DJ.dirty[p];
+  }
+  dsave();
+  const el=document.getElementById('diarySyncNote');
+  if(el){ const n=Object.keys(DJ.dirty).length;
+    el.textContent = n? '未送信の変更 '+n+'件（通信復帰時に自動送信）':''; }
+}
+function shrinkImage(file,cb){ const img=new Image();
+  img.onload=()=>{ const M=1200; let w=img.width,h=img.height;
+    if(Math.max(w,h)>M){ const s=M/Math.max(w,h); w=Math.round(w*s); h=Math.round(h*s); }
+    const c=document.createElement('canvas'); c.width=w; c.height=h;
+    c.getContext('2d').drawImage(img,0,0,w,h);
+    URL.revokeObjectURL(img.src); cb(c.toDataURL('image/jpeg',0.72)); };
+  img.src=URL.createObjectURL(file); }
+
+// ---- 日記 ----
+async function renderDiary(){
+  if(!diCur) diCur=todayKey().slice(0,7);
+  const [y,m]=diCur.split('-').map(Number);
+  document.getElementById('diaryTitle').textContent=y+'年'+m+'月';
+  drawDiaryList();
+  const rm=await dGET('d/'+diCur);
+  if(diMergeMonth(DJ.d,diCur,rm)){ dsave(); drawDiaryList(); if(diOpen&&diOpen.slice(0,7)===diCur) fillDiaryEd(diOpen); }
+  flushDiaryDirty();
+}
+function drawDiaryList(){
+  const [y,m]=diCur.split('-').map(Number);
+  const list=document.getElementById('diaryList'); list.innerHTML='';
+  const mon=DJ.d[diCur]||{}; const last=new Date(y,m,0).getDate(); const today=todayKey();
+  for(let d=last; d>=1; d--){
+    const k=diCur+'-'+String(d).padStart(2,'0');
+    if(k>today) continue;
+    const e=mon[k]; const dt=new Date(y,m-1,d);
+    const row=document.createElement('div'); row.className='dirow'+(e&&e.t?'':' empty');
+    row.innerHTML='<span class="dd">'+m+'/'+d+' '+'日月火水木金土'[dt.getDay()]+'</span>'+
+      '<span class="pv">'+(e&&e.t? dEsc(e.t.split('\n')[0]).slice(0,48):'—')+'</span>'+
+      (e&&e.phc? '<span class="small">📷'+e.phc+'</span>':'');
+    row.onclick=()=>openDiary(k);
+    list.appendChild(row);
+  }
+}
+function fillDiaryEd(k){
+  const e=(DJ.d[k.slice(0,7)]||{})[k];
+  const ta=document.getElementById('diaryText');
+  if(document.activeElement!==ta) ta.value=(e&&e.t)||'';
+}
+async function openDiary(k){
+  diOpen=k; diCur=k.slice(0,7);
+  const ed=document.getElementById('diaryEd'); ed.style.display='block';
+  const dt=new Date(k);
+  document.getElementById('diaryEdTitle').textContent=dt.toLocaleDateString('ja-JP',{month:'long',day:'numeric',weekday:'short'})+' の日記';
+  fillDiaryEd(k);
+  document.getElementById('diaryPhotos').innerHTML='';
+  ed.scrollIntoView({behavior:'smooth'});
+  const e=(DJ.d[diCur]||{})[k];
+  if(e&&e.phc){ const ph=await dGET('p/'+diCur+'/'+k); if(ph){ PH[k]=ph; if(diOpen===k) drawDiaryPhotos(k); } }
+}
+function drawDiaryPhotos(k){
+  const w=document.getElementById('diaryPhotos'); w.innerHTML='';
+  Object.keys(PH[k]||{}).sort().forEach(id=>{
+    const img=document.createElement('img'); img.src=PH[k][id]; img.loading='lazy';
+    img.onclick=()=>{ if(confirm('この写真を削除しますか？')){
+      delete PH[k][id]; dDEL('p/'+k.slice(0,7)+'/'+k+'/'+id); setPhc(k); drawDiaryPhotos(k); } };
+    w.appendChild(img);
+  });
+}
+function setPhc(k){ const ym=k.slice(0,7); const mon=DJ.d[ym]=DJ.d[ym]||{};
+  const e=mon[k]=mon[k]||{t:'',u:0};
+  e.phc=Object.keys(PH[k]||{}).length; e.u=Date.now();
+  DJ.dirty['d/'+ym+'/'+k]=1; dsave(); drawDiaryList(); flushDiaryDirty(); }
+function diaryLite(){ clearTimeout(diaryTmr); diaryTmr=setTimeout(saveDiaryText,1500); }
+function saveDiaryText(){
+  clearTimeout(diaryTmr);
+  const k=diOpen; if(!k) return; const ym=k.slice(0,7);
+  const mon=DJ.d[ym]=DJ.d[ym]||{};
+  const prev=mon[k]||{};
+  const t=document.getElementById('diaryText').value;
+  if(t===(prev.t||'')) return;
+  mon[k]={t, u:Date.now(), phc:prev.phc||0};
+  DJ.dirty['d/'+ym+'/'+k]=1; dsave(); drawDiaryList(); flushDiaryDirty();
+}
+async function addDiaryPhoto(inp){
+  const f=inp.files&&inp.files[0]; inp.value=''; if(!f||!diOpen) return;
+  const k=diOpen, ym=k.slice(0,7);
+  shrinkImage(f, async url=>{
+    const id='p'+Date.now().toString(36);
+    PH[k]=PH[k]||{}; PH[k][id]=url; drawDiaryPhotos(k);
+    const ok=await dPUT('p/'+ym+'/'+k+'/'+id, url);
+    if(!ok) toast('写真の送信に失敗（通信を確認）');
+    setPhc(k);
+  });
+}
+function insertDiarySkeleton(){
+  const k=diOpen; if(!k) return;
+  const rec=DB.days[k]; const ta=document.getElementById('diaryText');
+  let line='[実績] 記録なし';
+  if(rec){ const wc=dayWC(rec,k);
+    line='[実績] 実働'+(wc.workMs/3600000).toFixed(1)+'h / 本編'+fmtP(rec.pages||0)+'P'+(rec.taicho?' / 体調'+rec.taicho:'');
+    if(rec.memo) line+='\nメモ: '+rec.memo;
+  }
+  ta.value=(ta.value? ta.value+'\n':'')+line;
+  saveDiaryText();
+}
+function diMove(n){ const [y,m]=diCur.split('-').map(Number);
+  const d=new Date(y,m-1+n,1); diCur=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+  document.getElementById('diaryEd').style.display='none'; diOpen=null; renderDiary(); }
+
+// ---- ログ ----
+function lgCatLabel(id){ const c=LOGCATS.find(x=>x[0]===id); return c?c[1]:'✨'; }
+async function renderLog(){
+  if(!lgCur) lgCur=todayKey().slice(0,7);
+  const [y,m]=lgCur.split('-').map(Number);
+  document.getElementById('logTitle').textContent=y+'年'+m+'月';
+  drawLogChips(); drawLogForm(); drawLogList();
+  if(!document.getElementById('logDate').value) document.getElementById('logDate').value=todayKey();
+  const rm=await dGET('x/'+lgCur);
+  if(diMergeMonth(DJ.x,lgCur,rm)){ dsave(); drawLogList(); }
+  flushDiaryDirty();
+}
+function drawLogChips(){
+  const w=document.getElementById('logCatChips'); w.innerHTML='';
+  [['all','すべて']].concat(LOGCATS).forEach(pair=>{
+    const c=document.createElement('div'); c.className='chip mini'+(lgFilter===pair[0]?' on':'');
+    c.textContent=pair[1]; c.onclick=()=>{ lgFilter=pair[0]; drawLogChips(); drawLogList(); };
+    w.appendChild(c); });
+}
+function drawLogList(){
+  const list=document.getElementById('logList'); list.innerHTML='';
+  const mon=DJ.x[lgCur]||{};
+  const items=Object.keys(mon).map(id=>Object.assign({id:id},mon[id]))
+    .filter(it=>!it.del).filter(it=>lgFilter==='all'||it.c===lgFilter)
+    .sort((a,b)=>(b.d||'').localeCompare(a.d||''));
+  if(!items.length){ list.innerHTML='<div class="small" style="padding:8px 2px">この月の記録はまだありません</div>'; return; }
+  items.forEach(it=>{
+    const row=document.createElement('div'); row.className='dirow';
+    row.innerHTML='<span class="dd">'+(it.d||'').slice(5).replace('-','/')+'</span>'+
+      '<span class="pv"><b style="color:var(--fg)">'+dEsc(it.n)+'</b>'+(it.m?' — '+dEsc(it.m):'')+'</span>'+
+      '<span class="small">'+lgCatLabel(it.c).split(' ')[0]+
+      (it.r?'<span style="color:var(--accent)"> '+'★'.repeat(it.r)+'</span>':'')+(it.ph?' 📷':'')+'</span>';
+    row.onclick=()=>editLogItem(it.id);
+    list.appendChild(row); });
+}
+function drawLogForm(){
+  const w=document.getElementById('logFormCats'); w.innerHTML='';
+  LOGCATS.forEach(pair=>{ const c=document.createElement('div');
+    c.className='chip mini'+(lgCat===pair[0]?' on':''); c.textContent=pair[1];
+    c.onclick=()=>{ lgCat=pair[0]; drawLogForm(); }; w.appendChild(c); });
+  drawStars();
+  document.getElementById('logFormTitle').textContent=lgEdit?'記録を編集':'記録を追加';
+  document.getElementById('logCancelBtn').style.display=lgEdit?'inline-block':'none';
+  document.getElementById('logDelBtn').style.display=lgEdit?'inline-block':'none';
+}
+function drawStars(){ const w=document.getElementById('logStars'); w.innerHTML='';
+  for(let i=1;i<=5;i++){ const s=document.createElement('span');
+    s.textContent=i<=lgRating?'★':'☆'; s.style.cssText='cursor:pointer;color:'+(i<=lgRating?'var(--accent)':'var(--sub)');
+    s.onclick=(function(n){ return function(){ lgRating=(lgRating===n?0:n); drawStars(); }; })(i);
+    w.appendChild(s); } }
+function resetLogForm(){ lgEdit=null; lgPhoto=null; lgRating=0; lgCat='other';
+  const n=document.getElementById('logName'); if(!n) return;
+  n.value=''; document.getElementById('logMemo').value='';
+  document.getElementById('logDate').value=todayKey();
+  document.getElementById('logPhotoWrap').innerHTML='';
+  drawLogForm(); }
+async function editLogItem(id){
+  const it=(DJ.x[lgCur]||{})[id]; if(!it) return;
+  lgEdit=id; lgRating=it.r||0; lgCat=it.c||'other'; lgPhoto=null;
+  document.getElementById('logName').value=it.n||'';
+  document.getElementById('logMemo').value=it.m||'';
+  document.getElementById('logDate').value=it.d||todayKey();
+  document.getElementById('logPhotoWrap').innerHTML='';
+  drawLogForm();
+  document.getElementById('logFormTitle').scrollIntoView({behavior:'smooth'});
+  if(it.ph){ const p=await dGET('xp/'+lgCur+'/'+id); if(p&&lgEdit===id){ lgPhoto=p; drawLogPhoto(); } }
+}
+function drawLogPhoto(){ const w=document.getElementById('logPhotoWrap'); w.innerHTML='';
+  if(!lgPhoto) return; const img=document.createElement('img'); img.src=lgPhoto;
+  img.onclick=()=>{ if(confirm('写真を外しますか？')){ lgPhoto=null; drawLogPhoto(); } };
+  w.appendChild(img); }
+function pickLogPhoto(inp){ const f=inp.files&&inp.files[0]; inp.value=''; if(!f) return;
+  shrinkImage(f, url=>{ lgPhoto=url; drawLogPhoto(); }); }
+async function saveLogItem(){
+  const n=document.getElementById('logName').value.trim();
+  if(!n){ toast('タイトルを入れてください'); return; }
+  const d=document.getElementById('logDate').value||todayKey();
+  const ym=d.slice(0,7);
+  const id=lgEdit||('x'+Date.now().toString(36));
+  const prev=lgEdit? ((DJ.x[lgCur]||{})[lgEdit]||{}):{};
+  const it={d:d, c:lgCat, n:n, r:lgRating, m:document.getElementById('logMemo').value.trim(),
+            u:Date.now(), ph: lgPhoto?1:(lgEdit&&prev.ph?1:0)};
+  if(lgEdit && ym!==lgCur){ // 日付変更で月が移った: 旧月に墓標
+    const old=DJ.x[lgCur]||{};
+    if(old[lgEdit]){ old[lgEdit]={del:1,u:Date.now()}; DJ.dirty['x/'+lgCur+'/'+lgEdit]=1;
+      dPUT('xp/'+ym+'/'+id, lgPhoto||null); dDEL('xp/'+lgCur+'/'+lgEdit); }
+  }
+  const mon=DJ.x[ym]=DJ.x[ym]||{}; mon[id]=it;
+  DJ.dirty['x/'+ym+'/'+id]=1; dsave();
+  if(lgPhoto) await dPUT('xp/'+ym+'/'+id, lgPhoto);
+  resetLogForm(); lgCur=ym;
+  const t=document.getElementById('logTitle'); const [yy,mm]=ym.split('-').map(Number);
+  t.textContent=yy+'年'+mm+'月';
+  drawLogList(); flushDiaryDirty(); toast('保存しました');
+}
+async function delLogItem(){
+  if(!lgEdit) return; if(!confirm('この記録を削除しますか？')) return;
+  const mon=DJ.x[lgCur]||{}; mon[lgEdit]={del:1,u:Date.now()};
+  DJ.dirty['x/'+lgCur+'/'+lgEdit]=1; dDEL('xp/'+lgCur+'/'+lgEdit);
+  resetLogForm(); dsave(); drawLogList(); flushDiaryDirty();
+}
+function lgMove(n){ const [y,m]=lgCur.split('-').map(Number);
+  const d=new Date(y,m-1+n,1); lgCur=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+  renderLog(); }
+
+// ---- 判定日カウントダウン ----
+function renderJudge(){ const el=document.getElementById('judgeLine'); if(!el) return;
+  const d=Math.ceil((new Date(2026,9,31)-logicalNow())/86400000);
+  el.textContent = (d>=0 && d<=120)? '判定日(10月末)まで '+d+'日' : ''; }
+
 // boot
 initCal();
 repairWork();
 renderAll();
+diCur=todayKey().slice(0,7); lgCur=diCur; resetLogForm(); renderJudge();
 document.getElementById('todoInput').addEventListener('keydown',e=>{ if(e.key==='Enter') addTodo(); });
 // Web公開版: 同期設定は「原則」タブで各端末1回だけ入力(保存されます)
 const cfg=syncCfg();
@@ -1639,11 +1975,17 @@ if(cfg){ document.getElementById('cfgDb').value=cfg.db; document.getElementById(
   document.getElementById('syncStatusText').textContent='同期先: '+cfg.db;
   fetchAndMerge().then(startStream);
 } else setDot('','ローカル');
-setInterval(()=>{ repairWork(); renderToday(); },60000);
-setInterval(()=>{ if(syncCfg()) fetchAndMerge(); },60000);
+setInterval(()=>{ repairWork(); renderToday(); renderJudge(); flushDiaryDirty(); },60000);
+// 60秒ごとに更新時刻(数十バイト)だけ確認し、変化があった時だけ全体を取得
+setInterval(async()=>{ const url=syncUrl(); if(!url) return;
+  try{ const rt=await fetch(url.replace('.json','/t.json'),{cache:'no-store'}).then(x=>x.json());
+    if(rt!=null && rt!==lastRemoteT) fetchAndMerge();
+  }catch(e){}
+},60000);
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden && syncCfg()) fetchAndMerge(); });
 // 横スワイプでタブ遷移
 (function(){
-  const order=['today','cal','week','stats','todo','rules'];
+  const order=['today','cal','diary','stats','todo','log'];
   let sx=null, sy=null, ok=false;
   document.addEventListener('touchstart',e=>{
     if(e.touches.length!==1){ ok=false; return; }
