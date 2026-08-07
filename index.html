@@ -511,6 +511,7 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
       <button class="navbtn" onclick="lgMove(-1)">‹</button>
       <b id="logTitle">—</b>
       <button class="navbtn" onclick="lgMove(1)">›</button>
+      <button class="btn ghost" id="logAllBtn" style="margin:0 0 0 8px; padding:6px 10px; font-size:12px; flex:none" onclick="lgToggleAll()">📋 全期間一覧</button>
     </div>
     <div class="modes" id="logCatChips" style="margin-top:6px"></div>
     <div id="logList"></div>
@@ -1932,8 +1933,47 @@ function diMove(n){ const [y,m]=diCur.split('-').map(Number);
 
 // ---- ログ ----
 function lgCatLabel(id){ const c=LOGCATS.find(x=>x[0]===id); return c?c[1]:'✨'; }
+let lgAll=false;
+function lgToggleAll(){ lgAll=!lgAll; renderLog(); }
+function drawLogListAll(){
+  const list=document.getElementById('logList'); list.innerHTML='';
+  const yms=Object.keys(DJ.x).sort().reverse();
+  let count=0;
+  yms.forEach(ym=>{
+    const mon=DJ.x[ym]||{};
+    const items=Object.keys(mon).map(id=>Object.assign({id:id,ym:ym},mon[id]))
+      .filter(it=>!it.del).filter(it=>lgFilter==='all'||it.c===lgFilter)
+      .sort((a,b)=>(b.d||'').localeCompare(a.d||''));
+    if(!items.length) return;
+    const h=document.createElement('div');
+    h.innerHTML='<b style="font-size:13px">'+parseInt(ym.slice(0,4))+'年'+parseInt(ym.slice(5))+'月</b><span class="small"> ('+items.length+'件)</span>';
+    h.style.cssText='margin:12px 0 2px; border-bottom:2px solid var(--line); padding-bottom:3px;';
+    list.appendChild(h);
+    items.forEach(it=>{ count++;
+      const row=document.createElement('div'); row.className='dirow';
+      row.innerHTML='<span class="dd">'+(it.d||'').slice(5).replace('-','/')+'</span>'+
+        '<span class="pv"><b style="color:var(--fg)">'+dEsc(it.n)+'</b>'+(it.m?' — '+dEsc(it.m):'')+'</span>'+
+        '<span class="small">'+lgCatLabel(it.c).split(' ')[0]+
+        (it.r?'<span style="color:var(--accent)"> '+'★'.repeat(it.r)+'</span>':'')+(it.ph?' 📷':'')+'</span>';
+      row.onclick=()=>{ lgAll=false; lgCur=it.ym; renderLog().then(()=>editLogItem(it.id)); };
+      list.appendChild(row);
+    });
+  });
+  if(!count) list.innerHTML='<div class="small" style="padding:8px 2px">記録がありません</div>';
+}
 async function renderLog(){
   if(!lgCur) lgCur=todayKey().slice(0,7);
+  const ab=document.getElementById('logAllBtn');
+  if(ab){ ab.style.background=lgAll?'var(--gold)':''; ab.style.borderColor=lgAll?'var(--accent)':''; }
+  if(lgAll){
+    document.getElementById('logTitle').textContent='全期間';
+    drawLogChips(); drawLogForm();
+    const all=await dGET('x');
+    if(all){ Object.keys(all).forEach(ym=>diMergeMonth(DJ.x,ym,all[ym])); dsave(); }
+    drawLogListAll();
+    flushDiaryDirty();
+    return;
+  }
   const [y,m]=lgCur.split('-').map(Number);
   document.getElementById('logTitle').textContent=y+'年'+m+'月';
   drawLogChips(); drawLogForm(); drawLogList();
@@ -1946,7 +1986,7 @@ function drawLogChips(){
   const w=document.getElementById('logCatChips'); w.innerHTML='';
   [['all','すべて']].concat(LOGCATS).forEach(pair=>{
     const c=document.createElement('div'); c.className='chip mini'+(lgFilter===pair[0]?' on':'');
-    c.textContent=pair[1]; c.onclick=()=>{ lgFilter=pair[0]; drawLogChips(); drawLogList(); };
+    c.textContent=pair[1]; c.onclick=()=>{ lgFilter=pair[0]; drawLogChips(); if(lgAll) drawLogListAll(); else drawLogList(); };
     w.appendChild(c); });
 }
 function drawLogList(){
@@ -2031,7 +2071,7 @@ async function delLogItem(){
   DJ.dirty['x/'+lgCur+'/'+lgEdit]=1; dDEL('xp/'+lgCur+'/'+lgEdit);
   resetLogForm(); dsave(); drawLogList(); flushDiaryDirty();
 }
-function lgMove(n){ const [y,m]=lgCur.split('-').map(Number);
+function lgMove(n){ lgAll=false; const [y,m]=lgCur.split('-').map(Number);
   const d=new Date(y,m-1+n,1); lgCur=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
   renderLog(); }
 
