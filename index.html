@@ -91,7 +91,8 @@ textarea,input[type=text],select{width:100%; border:1.5px solid var(--line); bor
 .tab.on{color:var(--accent);}
 .tab .ic{font-size:18px; display:block; filter:grayscale(1); opacity:.5; transition:all .15s;}
 .tab.on .ic{filter:none; opacity:1;}
-.gear{cursor:pointer; font-size:15px; opacity:.55; margin-left:6px;}
+.gear{cursor:pointer; font-size:20px; opacity:.7; margin-left:8px; vertical-align:middle;}
+.mchart .ml.ml2{height:22px; line-height:1.15;}
 .dirow{display:flex; gap:8px; padding:9px 2px; border-bottom:1px solid var(--line); cursor:pointer; align-items:baseline;}
 .dirow .dd{min-width:62px; font-weight:700; font-size:12.5px;}
 .dirow .pv{flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:12.5px; color:var(--sub);}
@@ -309,39 +310,48 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
 <div class="page" id="page-stats">
   <div class="card">
     <h2>積み重ね（全期間）</h2>
-    <div class="statgrid">
+    <div class="statgrid" style="grid-template-columns:repeat(3,1fr)">
       <div class="card2"><div class="bignum" id="stWorkDays">0</div><div class="small">制作した日</div></div>
       <div class="card2"><div class="bignum" id="stPages">0</div><div class="small">本編ページ累計</div></div>
       <div class="card2"><div class="bignum" id="stSaikai">0</div><div class="small">再開回数（誇るところ）</div></div>
-      <div class="card2"><div class="bignum" id="stKotowari">0</div><div class="small">断れた回数</div></div>
     </div>
+    <div class="small" style="margin-top:6px">再開回数 = 漫画をやらなかった日から復帰した回数（宣言した休みはノーカン）</div>
   </div>
   <div class="card">
     <h2>本編ページ</h2>
     <div class="modes" id="pgPeriodChips" style="margin-bottom:6px"></div>
-    <div class="mchart" id="mChart"></div>
+    <div class="mchart" id="mChart" style="height:100px"></div>
   </div>
   <div class="card">
-    <h2>実働時間（直近3週間）</h2>
-    <div class="mchart" id="wChart30" style="gap:2px; height:80px"></div>
-    <h2 style="margin-top:16px">週ごと（直近8週・週開始日）</h2>
-    <div class="mchart" id="wChartW"></div>
-    <h2 style="margin-top:16px">月ごと（直近6ヶ月）</h2>
-    <div class="mchart" id="wChartM"></div>
+    <h2>実働時間</h2>
+    <div class="modes" id="wtPeriodChips" style="margin-bottom:6px"></div>
+    <div class="mchart" id="wChart" style="gap:2px; height:100px"></div>
   </div>
   <div class="card">
-    <h2>時間の使い方（カテゴリ別）</h2>
+    <h2>時間の使い方</h2>
+    <div class="calhead" style="margin-bottom:4px">
+      <button class="navbtn" onclick="catMove(-1)">‹</button>
+      <b id="catRangeLbl" style="font-size:13px">—</b>
+      <button class="navbtn" onclick="catMove(1)">›</button>
+    </div>
     <div class="modes" id="catPeriodChips" style="margin-bottom:10px"></div>
-    <div class="mchart" id="catStack" style="height:120px"></div>
-    <div style="display:flex; gap:16px; align-items:center; margin-top:16px;">
-      <div id="catPie" style="width:118px; height:118px; border-radius:50%; flex:none; background:var(--line);"></div>
-      <div id="catLegend" style="flex:1; min-width:0;"></div>
+    <div class="mchart" id="catStack" style="height:130px"></div>
+    <div style="display:flex; gap:14px; align-items:center; margin-top:16px; flex-wrap:wrap">
+      <div style="position:relative; width:150px; height:150px; flex:none; margin:0 auto">
+        <div id="catPie" style="width:150px; height:150px; border-radius:50%; background:var(--line);"></div>
+        <div id="catPieLbls" style="position:absolute; inset:0; pointer-events:none"></div>
+      </div>
+      <div id="catLegend" style="flex:1; min-width:180px;"></div>
     </div>
     <div id="catRows" style="margin-top:10px"></div>
-    <div class="small" id="mangaRate30" style="margin-top:6px"></div>
   </div>
   <div class="card">
-    <h2>勤務ログ（直近14日）</h2>
+    <h2>勤務ログ</h2>
+    <div class="calhead" style="margin-bottom:4px">
+      <button class="navbtn" onclick="wlMove(-1)">‹</button>
+      <b id="wlRangeLbl" style="font-size:13px">—</b>
+      <button class="navbtn" onclick="wlMove(1)">›</button>
+    </div>
     <table id="workLog"></table>
   </div>
   <div class="card">
@@ -462,6 +472,9 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <h2>設定・データ</h2>
     <div class="settings-row"><div><b>在籍中モード</b><div class="small">朝1h版+断る練習カウンター</div></div>
       <div class="switch" id="zaisekiSwitch" onclick="toggleZaiseki()"></div></div>
+    <div class="settings-row" style="margin-top:8px"><div><b>Firebase使用量</b><div class="small" id="fbUsage">未測定（測定ボタンで写真込みの全データ量を確認）</div></div>
+      <button class="btn ghost" style="margin:0; flex:none" onclick="measureFb()">測定</button></div>
+    <div class="bar"><div id="fbUsageBar" style="width:0%; background:var(--blue)"></div></div>
     <button class="btn ghost" onclick="exportData()">データを書き出す</button>
     <button class="btn ghost" onclick="importData()">読み込む</button>
     <input type="file" id="importFile" accept=".json" style="display:none">
@@ -1236,71 +1249,123 @@ function copyDiscord(){
 }
 
 // ================= render: stats =================
-function catSums(period){
+function catRangeDays(view,off){
+  const out=[];
+  if(view==='day'){
+    const s=new Date(weekKey()); s.setDate(s.getDate()-7*off);
+    for(let i=0;i<7;i++){ const d=new Date(s); d.setDate(s.getDate()+i); out.push(todayKey(d)); }
+  } else if(view==='week'){
+    const e=new Date(weekKey()); e.setDate(e.getDate()-7*off);
+    const s=new Date(e); s.setDate(e.getDate()-49);
+    for(let i=0;i<56;i++){ const d=new Date(s); d.setDate(s.getDate()+i); out.push(todayKey(d)); }
+  } else if(view==='month'){
+    const now=logicalNow();
+    for(let m=5;m>=0;m--){
+      const d0=new Date(now.getFullYear(), now.getMonth()-off-m, 1);
+      const dim=new Date(d0.getFullYear(), d0.getMonth()+1, 0).getDate();
+      for(let i=1;i<=dim;i++) out.push(todayKey(new Date(d0.getFullYear(), d0.getMonth(), i)));
+    }
+  } else { return Object.keys(DB.days).sort(); }
+  return out;
+}
+function catSums(view,off){
   const sums={}; let tot=0;
-  const addDay=(k)=>{ const cc=catCalc(DB.days[k],k);
-    for(const id in cc.perCat){ sums[id]=(sums[id]||0)+cc.perCat[id]; tot+=cc.perCat[id]; } };
-  if(period==='all'){ Object.keys(DB.days).forEach(addDay); }
-  else if(period==='week'||period==='week1'||period==='week2'){
-    const off=period==='week1'?7:(period==='week2'?14:0);
-    const s=new Date(weekKey()); s.setDate(s.getDate()-off);
-    for(let i=0;i<7;i++){ const d=new Date(s); d.setDate(s.getDate()+i); addDay(todayKey(d)); } }
-  else if(period==='month'){ const ym=todayKey().slice(0,7);
-    Object.keys(DB.days).filter(k=>k.slice(0,7)===ym).forEach(addDay); }
-  else { for(let i=0;i<30;i++){ const d=new Date(); d.setDate(d.getDate()-i); addDay(todayKey(d)); } }
+  catRangeDays(view,off).forEach(k=>{ if(!DB.days[k]) return; const cc=catCalc(DB.days[k],k);
+    for(const id in cc.perCat){ sums[id]=(sums[id]||0)+cc.perCat[id]; tot+=cc.perCat[id]; } });
   return {sums:sums, tot:tot};
 }
-function catDays(period){
+function catDays(view,off){
   const out=[];
   const push=(k,label)=>{ const cc=catCalc(DB.days[k],k); out.push({label:label, perCat:cc.perCat, total:cc.total}); };
-  if(period==='week'||period==='week1'||period==='week2'){
-    const off=period==='week1'?7:(period==='week2'?14:0);
-    const s=new Date(weekKey()); s.setDate(s.getDate()-off);
-    const names=['月','火','水','木','金','土','日'];
-    for(let i=0;i<7;i++){ const d=new Date(s); d.setDate(s.getDate()+i); push(todayKey(d), names[i]); }
-  } else if(period==='month'){
-    const now=new Date(); const days=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
-    for(let i=1;i<=days;i++){ push(todayKey(new Date(now.getFullYear(),now.getMonth(),i)), (i===1||i%5===0)?String(i):''); }
-  } else if(period==='30d'){
-    for(let i=29;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i);
-      push(todayKey(d), (d.getDay()===1||i===0)?(d.getMonth()+1)+'/'+d.getDate():''); }
+  if(view==='day'){
+    const s=new Date(weekKey()); s.setDate(s.getDate()-7*off);
+    for(let i=0;i<7;i++){ const d=new Date(s); d.setDate(s.getDate()+i); push(todayKey(d), dayLbl(d,false)); }
+  } else if(view==='week'){
+    const e=new Date(weekKey()); e.setDate(e.getDate()-7*off);
+    for(let w=7;w>=0;w--){
+      const ws=new Date(e); ws.setDate(e.getDate()-7*w);
+      const agg={}; let tot=0;
+      for(let j=0;j<7;j++){ const d=new Date(ws); d.setDate(ws.getDate()+j); const k=todayKey(d);
+        if(!DB.days[k]) continue; const cc=catCalc(DB.days[k],k);
+        for(const id in cc.perCat){ agg[id]=(agg[id]||0)+cc.perCat[id]; tot+=cc.perCat[id]; } }
+      out.push({label:(ws.getMonth()+1)+'/'+ws.getDate(), perCat:agg, total:tot});
+    }
   } else {
-    const now=new Date();
-    for(let i=5;i>=0;i--){
-      const d=new Date(now.getFullYear(), now.getMonth()-i, 1);
-      const ym=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    const monthsL=[];
+    if(view==='month'){
+      const now=logicalNow();
+      for(let m=5;m>=0;m--){ const d=new Date(now.getFullYear(), now.getMonth()-off-m, 1);
+        monthsL.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')); }
+    } else {
+      const ks=Object.keys(DB.days).sort();
+      if(ks.length){ const sYm=ks[0].slice(0,7), eYm=todayKey().slice(0,7);
+        let y=parseInt(sYm.slice(0,4)), m=parseInt(sYm.slice(5));
+        for(let g=0; g<60; g++){ const ym=y+'-'+String(m).padStart(2,'0'); monthsL.push(ym);
+          if(ym>=eYm) break; m++; if(m>12){ m=1; y++; } } }
+    }
+    monthsL.forEach(ym=>{
       const agg={}; let tot=0;
       Object.keys(DB.days).filter(k=>k.slice(0,7)===ym).forEach(k=>{
         const cc=catCalc(DB.days[k],k);
-        for(const id in cc.perCat){ agg[id]=(agg[id]||0)+cc.perCat[id]; tot+=cc.perCat[id]; }
-      });
+        for(const id in cc.perCat){ agg[id]=(agg[id]||0)+cc.perCat[id]; tot+=cc.perCat[id]; } });
       out.push({label:parseInt(ym.slice(5))+'月', perCat:agg, total:tot});
-    }
+    });
   }
   return out;
+}
+function catRangeLabel(view,off){
+  const f=(d)=>(d.getMonth()+1)+'/'+d.getDate();
+  if(view==='day'){ const s=new Date(weekKey()); s.setDate(s.getDate()-7*off); const e=new Date(s); e.setDate(s.getDate()+6); return f(s)+'〜'+f(e); }
+  if(view==='week'){ const e=new Date(weekKey()); e.setDate(e.getDate()-7*off); const s=new Date(e); s.setDate(e.getDate()-49); const e2=new Date(e); e2.setDate(e.getDate()+6); return f(s)+'〜'+f(e2)+'（8週）'; }
+  if(view==='month'){ const now=logicalNow(); const s=new Date(now.getFullYear(), now.getMonth()-off-5, 1); const e=new Date(now.getFullYear(), now.getMonth()-off, 1);
+    return s.getFullYear()+'年'+(s.getMonth()+1)+'月〜'+((e.getFullYear()!==s.getFullYear())?(e.getFullYear()+'年'):'')+(e.getMonth()+1)+'月'; }
+  return '全期間';
+}
+// ===== 統計ヘルパー（祝日・ラベル・移動・使用量） =====
+const JP_HOLIDAYS=new Set(['2026-01-01','2026-01-12','2026-02-11','2026-02-23','2026-03-20','2026-04-29','2026-05-03','2026-05-04','2026-05-05','2026-05-06','2026-07-20','2026-08-11','2026-09-21','2026-09-22','2026-09-23','2026-10-12','2026-11-03','2026-11-23','2027-01-01','2027-01-11','2027-02-11','2027-02-23','2027-03-22','2027-04-29','2027-05-03','2027-05-04','2027-05-05','2027-07-19','2027-08-11','2027-09-20','2027-09-23','2027-10-11','2027-11-03','2027-11-23']);
+function dayColor(dt,k){ if(JP_HOLIDAYS.has(k)||dt.getDay()===0) return '#cf5045'; if(dt.getDay()===6) return '#3b6fb5'; return ''; }
+function dayLbl(dt,withMonth){ const k=todayKey(dt); const c=dayColor(dt,k);
+  const d=(withMonth?(dt.getMonth()+1)+'/':'')+dt.getDate();
+  return '<span style="line-height:1.15; display:inline-block;'+(c?' color:'+c:'')+'">'+d+'<br>'+'日月火水木金土'[dt.getDay()]+'</span>'; }
+const CAT_SHORT={honpen:'本編',name:'ネーム',package:'サムネ',research:'リサーチ',promo:'集客',side:'副業',env:'環境',unk:'未分類'};
+function catMove(n){ if((window._catView||'day')==='all') return; window._catOff=Math.max(0,(window._catOff||0)-n); renderStats(); }
+function wlMove(n){ window._wlOff=Math.max(0,(window._wlOff||0)-n); renderStats(); }
+async function measureFb(){
+  const el=document.getElementById('fbUsage'), bar=document.getElementById('fbUsageBar');
+  if(!el) return;
+  if(!syncCfg()){ el.textContent='同期未設定'; return; }
+  el.textContent='測定中…';
+  try{
+    const b1=await fetch(syncUrl(),{cache:'no-store'}).then(r=>r.blob());
+    const b2=await fetch(diaryBase()+'.json',{cache:'no-store'}).then(r=>r.blob());
+    const total=b1.size+b2.size, limit=1073741824;
+    const pct=total/limit*100;
+    const fb=(b)=> b>=1048576? (b/1048576).toFixed(1)+'MB' : Math.max(1,Math.round(b/1024))+'KB';
+    el.innerHTML='本体 '+fb(b1.size)+' ＋ 日記・写真 '+fb(b2.size)+' ＝ <b>'+fb(total)+'</b> / 1GB（'+(pct<0.1?pct.toFixed(3):pct.toFixed(1))+'% 使用）';
+    if(bar) bar.style.width=Math.max(1,Math.min(100,pct))+'%';
+  }catch(e){ el.textContent='測定に失敗しました（通信を確認）'; }
 }
 function renderStats(){
   const tk=todayKey(); const ym=tk.slice(0,7);
   const keys=Object.keys(DB.days).sort();
+  const dayMsOf=(k)=>{ const rec=DB.days[k]; return rec?dayWC(rec,k).workMs:0; };
   // totals
-  let workDays=0, pagesTotal=0, kotowariTotal=0, saikai=0;
-  let lastNonRest=null;
+  let workDays=0, pagesTotal=0, saikai=0;
+  let lastState=null;
   if(keys.length){
     const first=new Date(keys[0]); const end=new Date(tk);
     for(let dt=new Date(first); dt<=end; dt.setDate(dt.getDate()+1)){
       const k=todayKey(dt); const r=DB.days[k];
       const done=r&&r.checks&&r.checks.manga;
-      const rest=r&&isRest(r.mode);
-      if(done){ workDays++; if(lastNonRest==='zero') saikai++; }
+      const declaredOff=r&&r.mode==='off';
+      if(done){ workDays++; if(lastState==='zero') saikai++; }
       pagesTotal+=(r&&r.pages)||0;
-      kotowariTotal+=(r&&r.kotowari)||0;
-      if(!rest) lastNonRest = done?'work':'zero';
+      if(!declaredOff) lastState = done?'work':'zero';
     }
   }
   document.getElementById('stWorkDays').textContent=workDays;
   document.getElementById('stPages').textContent=fmtP(pagesTotal);
   document.getElementById('stSaikai').textContent=saikai;
-  document.getElementById('stKotowari').textContent=kotowariTotal;
   // habit rates (last 30 days, rest days excluded from denominator)
   const rows=document.getElementById('statRows'); rows.innerHTML='';
   ITEMS.forEach(it=>{
@@ -1322,7 +1387,7 @@ function renderStats(){
       '<div class="sp">'+pct+'%</div><div class="sc">今月'+month+' / 計'+total+'</div>';
     rows.appendChild(el);
   });
-  // pages chart (month/week toggle)
+  // pages chart
   const mc=document.getElementById('mChart');
   const months=[]; const now=new Date();
   for(let i=5;i>=0;i--){
@@ -1333,9 +1398,9 @@ function renderStats(){
     const ppc=document.getElementById('pgPeriodChips');
     if(ppc && !ppc.dataset.init){
       ppc.dataset.init='1';
-      [['day','日別(3週間)'],['week','週別(8週)'],['month','月別(6ヶ月)']].forEach(([pid,label])=>{
-        const el=document.createElement('div'); el.className='chip mini'; el.dataset.pid=pid; el.textContent=label;
-        el.onclick=()=>{ window._pgPeriod=pid; renderStats(); };
+      [['day','日別(3週間)'],['week','週別(8週)'],['month','月別(6ヶ月)']].forEach(pair=>{
+        const el=document.createElement('div'); el.className='chip mini'; el.dataset.pid=pair[0]; el.textContent=pair[1];
+        el.onclick=()=>{ window._pgPeriod=pair[0]; renderStats(); };
         ppc.appendChild(el);
       });
     }
@@ -1347,7 +1412,7 @@ function renderStats(){
       for(let i=20;i>=0;i--){
         const d2=new Date(); d2.setDate(d2.getDate()-i);
         const rec2=DB.days[todayKey(d2)];
-        items.push({label:(d2.getDay()===1||i===0)?(d2.getMonth()+1)+'/'+d2.getDate():'', v:(rec2&&rec2.pages)||0, t:(d2.getMonth()+1)+'/'+d2.getDate()});
+        items.push({label:dayLbl(d2, i===20||d2.getDate()===1), v:(rec2&&rec2.pages)||0, t:(d2.getMonth()+1)+'/'+d2.getDate()});
       }
     } else if(pmode==='month'){
       items=months.map(m=>({label:parseInt(m.slice(5))+'月', v:keys.filter(k=>k.slice(0,7)===m).reduce((s,k)=>s+((DB.days[k].pages)||0),0)}));
@@ -1362,103 +1427,108 @@ function renderStats(){
     }
     const mx=Math.max(1,...items.map(x=>x.v));
     mc.style.gap=items.length>12?'2px':'6px';
-    addYAxis(mc, mx, v=>((v%1)?v.toFixed(1):v)+'P', 90);
+    addYAxis(mc, mx, v=>((v%1)?v.toFixed(1):v)+'P', 91);
     items.forEach(it=>{
       const el=document.createElement('div'); el.className='mb';
-      el.innerHTML='<div class="mv" style="'+(items.length>10?'font-size:8.5px; letter-spacing:-0.3px; overflow:visible':'')+'">'+(it.v?fmtP(it.v):'')+'</div><div class="bararea"><div style="height:'+Math.round(it.v/mx*100)+'%" title="'+(it.t||it.label)+' '+fmtP(it.v)+'P"></div></div><div class="ml">'+it.label+'</div>';
+      el.innerHTML='<div class="mv" style="'+(items.length>10?'font-size:8.5px; letter-spacing:-0.3px; overflow:visible':'')+'">'+(it.v?fmtP(it.v):'')+'</div><div class="bararea"><div style="height:'+Math.round(it.v/mx*100)+'%" title="'+(it.t||'')+' '+fmtP(it.v)+'P"></div></div><div class="ml ml2" style="font-size:8.5px">'+it.label+'</div>';
       mc.appendChild(el);
     });
   }
-  // work time stats
-  const dayMsOf=(k)=>{ const rec=DB.days[k]; return rec?dayWC(rec,k).workMs:0; };
-  const c30=document.getElementById('wChart30');
-  if(c30){
-    const wdays=[];
-    for(let i=20;i>=0;i--){ const dt=new Date(); dt.setDate(dt.getDate()-i); wdays.push({dt:new Date(dt), ms:dayMsOf(todayKey(dt))}); }
-    c30.innerHTML='';
-    const mx=Math.max(3600000,...wdays.map(x=>x.ms));
-    addYAxis(c30, mx, v=>(fmtH(v)||'0'), 80);
-    wdays.forEach((x,i)=>{
-      const el=document.createElement('div'); el.className='mb';
-      const hv=x.ms/3600000;
-      const lbl= hv>0 ? (hv>=10?String(Math.round(hv)):String(Math.round(hv*10)/10)) : '';
-      el.innerHTML='<div class="mv" style="font-size:8.5px; letter-spacing:-0.3px; overflow:visible">'+lbl+'</div>'+
-        '<div class="bararea"><div style="height:'+Math.round(x.ms/mx*100)+'%; background:var(--accent)" title="'+(x.dt.getMonth()+1)+'/'+x.dt.getDate()+' '+(fmtH(x.ms)||'0')+'"></div></div>'+
-        '<div class="ml">'+((x.dt.getDay()===1||i===20)?(x.dt.getMonth()+1)+'/'+x.dt.getDate():'')+'</div>';
-      c30.appendChild(el);
-    });
-  }
-  const cw=document.getElementById('wChartW');
-  if(cw){
-    const wks=[]; const curWk=new Date(weekKey());
-    for(let i=7;i>=0;i--){
-      const ws=new Date(curWk); ws.setDate(curWk.getDate()-7*i);
-      let sum=0;
-      for(let j=0;j<7;j++){ const dt=new Date(ws); dt.setDate(ws.getDate()+j); sum+=dayMsOf(todayKey(dt)); }
-      wks.push({ws,sum});
+  // work time (day/week/month tabs)
+  const wc1=document.getElementById('wChart');
+  if(wc1){
+    const wpc=document.getElementById('wtPeriodChips');
+    if(wpc && !wpc.dataset.init){
+      wpc.dataset.init='1';
+      [['day','日別(3週間)'],['week','週別(8週)'],['month','月別(6ヶ月)']].forEach(pair=>{
+        const el=document.createElement('div'); el.className='chip mini'; el.dataset.pid=pair[0]; el.textContent=pair[1];
+        el.onclick=()=>{ window._wtPeriod=pair[0]; renderStats(); };
+        wpc.appendChild(el);
+      });
     }
-    cw.innerHTML='';
-    const mxw=Math.max(3600000,...wks.map(x=>x.sum));
-    addYAxis(cw, mxw, v=>(fmtH(v)||'0'), 90);
-    wks.forEach(x=>{
+    const wmode=window._wtPeriod||'day';
+    if(wpc){ [...wpc.children].forEach(el=>el.classList.toggle('on', el.dataset.pid===wmode)); }
+    wc1.innerHTML='';
+    let witems=[];
+    if(wmode==='day'){
+      for(let i=20;i>=0;i--){ const dt=new Date(); dt.setDate(dt.getDate()-i);
+        witems.push({lbl:dayLbl(dt, i===20||dt.getDate()===1), ms:dayMsOf(todayKey(dt)), small:true}); }
+    } else if(wmode==='week'){
+      const curWk=new Date(weekKey());
+      for(let i=7;i>=0;i--){ const ws=new Date(curWk); ws.setDate(curWk.getDate()-7*i);
+        let sum=0; for(let j=0;j<7;j++){ const dt=new Date(ws); dt.setDate(ws.getDate()+j); sum+=dayMsOf(todayKey(dt)); }
+        witems.push({lbl:(ws.getMonth()+1)+'/'+ws.getDate(), ms:sum}); }
+    } else {
+      witems=months.map(m=>({lbl:parseInt(m.slice(5))+'月', ms:keys.filter(k=>k.slice(0,7)===m).reduce((s,k)=>s+dayMsOf(k),0)}));
+    }
+    wc1.style.gap=witems.length>12?'2px':'6px';
+    const mxw=Math.max(3600000,...witems.map(x=>x.ms));
+    addYAxis(wc1, mxw, v=>(fmtH(v)||'0'), 91);
+    witems.forEach(x=>{
+      const hv=x.ms/3600000;
+      const lblV= x.ms>0 ? (x.small? (hv>=10?String(Math.round(hv)):String(Math.round(hv*10)/10)) : (fmtH(x.ms)||'')) : '';
       const el=document.createElement('div'); el.className='mb';
-      el.innerHTML='<div class="mv">'+(fmtH(x.sum)||'')+'</div><div class="bararea"><div style="height:'+Math.round(x.sum/mxw*100)+'%; background:var(--accent)"></div></div><div class="ml">'+(x.ws.getMonth()+1)+'/'+x.ws.getDate()+'</div>';
-      cw.appendChild(el);
+      el.innerHTML='<div class="mv"'+(x.small?' style="font-size:8.5px; letter-spacing:-0.3px; overflow:visible"':'')+'>'+lblV+'</div>'+
+        '<div class="bararea"><div style="height:'+Math.round(x.ms/mxw*100)+'%; background:var(--accent)"></div></div>'+
+        '<div class="ml ml2" style="font-size:8.5px">'+x.lbl+'</div>';
+      wc1.appendChild(el);
     });
   }
-  const cm2=document.getElementById('wChartM');
-  if(cm2){
-    cm2.innerHTML='';
-    const wsums=months.map(m=>keys.filter(k=>k.slice(0,7)===m).reduce((s,k)=>s+dayMsOf(k),0));
-    const mxm=Math.max(3600000,...wsums);
-    addYAxis(cm2, mxm, v=>(fmtH(v)||'0'), 90);
-    months.forEach((m,i)=>{
-      const el=document.createElement('div'); el.className='mb';
-      el.innerHTML='<div class="mv">'+(fmtH(wsums[i])||'')+'</div><div class="bararea"><div style="height:'+Math.round(wsums[i]/mxm*100)+'%; background:var(--accent)"></div></div><div class="ml">'+parseInt(m.slice(5))+'月</div>';
-      cm2.appendChild(el);
-    });
-  }
+  // work log (14 days, navigable, zero days shown, weekend/holiday colored)
   const lg=document.getElementById('workLog');
   if(lg){
+    const off=window._wlOff||0;
+    const end=new Date(); end.setDate(end.getDate()-14*off);
+    const start=new Date(end); start.setDate(end.getDate()-13);
+    const rl=document.getElementById('wlRangeLbl');
+    if(rl) rl.textContent=(start.getMonth()+1)+'/'+start.getDate()+'〜'+(end.getMonth()+1)+'/'+end.getDate();
     lg.innerHTML='<tr><th>日付</th><th>開始</th><th>終了</th><th>休憩</th><th>実働</th></tr>';
-    let found=0;
-    for(let i=0;i<14;i++){
-      const dt=new Date(); dt.setDate(dt.getDate()-i); const k=todayKey(dt);
-      const rec=DB.days[k]; if(!rec) continue;
-      const evs=(rec.work&&rec.work.ev)||[];
-      if(!evs.length && !rec.workAdj) continue;
-      const wc=dayWC(rec,k);
-      if(!evs.length){ const tr0=document.createElement('tr');
-        tr0.innerHTML='<td>'+(dt.getMonth()+1)+'/'+dt.getDate()+'('+['日','月','火','水','木','金','土'][dt.getDay()]+')</td><td>—</td><td>手動</td><td>'+(fmtH(wc.breakMs)||'0')+'</td><td><b>'+(fmtH(wc.workMs)||'0')+'</b></td>';
-        lg.appendChild(tr0); found++; continue; }
-      const first=evs[0][1];
-      let endTs=null; evs.forEach(([t,at])=>{ if(t==='end') endTs=at; });
-      const isTodayRow=(k===tk);
-      const endTxt= (isTodayRow&&wc.st==='working')?'🟢勤務中': (isTodayRow&&wc.st==='break')?'☕休憩中': endTs?fmtTime(endTs):'自動終了';
+    for(let i=13;i>=0;i--){
+      const dt=new Date(end); dt.setDate(end.getDate()-i); const k=todayKey(dt);
+      const rec=DB.days[k];
+      const c=dayColor(dt,k);
+      const dcell='<td'+(c?' style="color:'+c+'; font-weight:700"':'')+'>'+(dt.getMonth()+1)+'/'+dt.getDate()+'('+['日','月','火','水','木','金','土'][dt.getDay()]+')</td>';
+      const evs=(rec&&rec.work&&rec.work.ev)||[];
       const tr=document.createElement('tr');
-      tr.innerHTML='<td>'+(dt.getMonth()+1)+'/'+dt.getDate()+'('+['日','月','火','水','木','金','土'][dt.getDay()]+')</td><td>'+fmtTime(first)+'</td><td>'+endTxt+'</td><td>'+(fmtH(wc.breakMs)||'0')+'</td><td><b>'+(fmtH(wc.workMs)||'0')+'</b></td>';
-      lg.appendChild(tr); found++;
+      if(!evs.length && !(rec&&rec.workAdj)){
+        tr.innerHTML=dcell+'<td>—</td><td>—</td><td>0</td><td>0</td>';
+        tr.style.color='var(--sub)';
+        lg.appendChild(tr); continue;
+      }
+      const wc=dayWC(rec,k);
+      if(!evs.length){
+        tr.innerHTML=dcell+'<td>—</td><td>手動</td><td>'+(fmtH(wc.breakMs)||'0')+'</td><td><b>'+(fmtH(wc.workMs)||'0')+'</b></td>';
+        lg.appendChild(tr); continue;
+      }
+      const first=evs[0][1];
+      let endTs=null; evs.forEach(ev=>{ if(ev[0]==='end') endTs=ev[1]; });
+      const isTodayRow=(k===tk);
+      const endTxt=(isTodayRow&&wc.st==='working')?'🟢勤務中':(isTodayRow&&wc.st==='break')?'☕休憩中': endTs?fmtTime(endTs):'自動終了';
+      tr.innerHTML=dcell+'<td>'+fmtTime(first)+'</td><td>'+endTxt+'</td><td>'+(fmtH(wc.breakMs)||'0')+'</td><td><b>'+(fmtH(wc.workMs)||'0')+'</b></td>';
+      lg.appendChild(tr);
     }
-    if(!found){ const tr=document.createElement('tr'); tr.innerHTML='<td colspan="5" class="small">まだ記録がありません（今日タブの「業務開始」から）</td>'; lg.appendChild(tr); }
   }
+  // time usage (day/week/month/all + arrows)
   const catRowsEl=document.getElementById('catRows');
   if(catRowsEl){
     const pc=document.getElementById('catPeriodChips');
     if(pc && !pc.dataset.init){
       pc.dataset.init='1';
-      [['week','今週'],['week1','先週'],['week2','先々週'],['month','今月'],['30d','直近30日'],['all','全期間']].forEach(([pid,label])=>{
-        const el=document.createElement('div'); el.className='chip mini'; el.dataset.pid=pid; el.textContent=label;
-        el.onclick=()=>{ window._catPeriod=pid; renderStats(); };
+      [['day','日別(週)'],['week','週別'],['month','月別'],['all','全期間']].forEach(pair=>{
+        const el=document.createElement('div'); el.className='chip mini'; el.dataset.pid=pair[0]; el.textContent=pair[1];
+        el.onclick=()=>{ window._catView=pair[0]; window._catOff=0; renderStats(); };
         pc.appendChild(el);
       });
     }
-    const period=window._catPeriod||'week';
-    if(pc){ [...pc.children].forEach(el=>el.classList.toggle('on', el.dataset.pid===period)); }
-    const cs2=catSums(period);
+    const view=window._catView||'day', coff=window._catOff||0;
+    if(pc){ [...pc.children].forEach(el=>el.classList.toggle('on', el.dataset.pid===view)); }
+    const rlbl=document.getElementById('catRangeLbl');
+    if(rlbl) rlbl.textContent=catRangeLabel(view,coff);
+    const cs2=catSums(view,coff);
     const sums=cs2.sums, ctot=cs2.tot;
     const stackEl=document.getElementById('catStack');
     if(stackEl){
-      const daysArr=catDays(period);
+      const daysArr=catDays(view,coff);
       stackEl.style.gap=daysArr.length>12?'2px':'6px';
       const maxT=Math.max(3600000,...daysArr.map(x=>x.total));
       stackEl.innerHTML='';
@@ -1470,23 +1540,28 @@ function renderStats(){
           const hpct=Math.max(1,Math.round(ms/maxT*100));
           const share=dd.total?ms/dd.total:0;
           const inLbl=(share>=0.25 && hpct>=14 && daysArr.length<=10)
-            ? '<span style="font-size:8px; color:#fff; line-height:1.1; display:block; text-align:center; padding-top:2px; letter-spacing:-0.3px">'+c.label.replace(/\(.*\)/,'')+'<br>'+(fmtH(ms)||'')+'</span>' : '';
+            ? '<span style="font-size:8px; color:#fff; line-height:1.1; display:block; text-align:center; padding-top:2px; letter-spacing:-0.3px">'+CAT_SHORT[c.id]+'<br>'+(fmtH(ms)||'')+'</span>' : '';
           segs='<div style="height:'+hpct+'%; background:'+c.color+'; min-height:2px; border-radius:0; overflow:hidden">'+inLbl+'</div>'+segs;
         });
-        const showV=daysArr.length<=7 && dd.total>=3600000;
-        col.innerHTML='<div class="mv">'+(showV?(fmtH(dd.total)||''):'')+'</div><div class="bararea" style="gap:0">'+segs+'</div><div class="ml">'+dd.label+'</div>';
+        const showV=daysArr.length<=8 && dd.total>=3600000;
+        col.innerHTML='<div class="mv">'+(showV?(fmtH(dd.total)||''):'')+'</div><div class="bararea" style="gap:0">'+segs+'</div><div class="ml ml2" style="font-size:8.5px">'+dd.label+'</div>';
         stackEl.appendChild(col);
       });
     }
-    const pieEl=document.getElementById('catPie'), legEl=document.getElementById('catLegend');
+    const pieEl=document.getElementById('catPie'), legEl=document.getElementById('catLegend'), lblLayer=document.getElementById('catPieLbls');
     if(pieEl&&legEl){
-      legEl.innerHTML='';
+      legEl.innerHTML=''; if(lblLayer) lblLayer.innerHTML='';
       if(ctot){
         let acc=0; const stops=[];
         CATS.concat([CAT_UNK]).forEach(c=>{
           const ms=sums[c.id]||0; if(ms<60000) return;
           const p=ms/ctot*100;
           stops.push(c.color+' '+acc.toFixed(2)+'% '+(acc+p).toFixed(2)+'%');
+          if(lblLayer && p>=8){
+            const th=(acc+p/2)*3.6*Math.PI/180; const R=47;
+            const x=75+R*Math.sin(th), y=75-R*Math.cos(th);
+            lblLayer.innerHTML+='<span style="position:absolute; left:'+x.toFixed(0)+'px; top:'+y.toFixed(0)+'px; transform:translate(-50%,-50%); font-size:9.5px; font-weight:700; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.5); text-align:center; line-height:1.15">'+CAT_SHORT[c.id]+'<br>'+Math.round(p)+'%</span>';
+          }
           acc+=p;
           legEl.innerHTML+='<div style="display:flex; align-items:center; gap:6px; font-size:12px; padding:1px 0;">'+
             '<span style="width:10px; height:10px; border-radius:3px; background:'+c.color+'; flex:none"></span>'+
@@ -1500,20 +1575,22 @@ function renderStats(){
       }
     }
     catRowsEl.innerHTML='';
-    const rateEl=document.getElementById('mangaRate30');
     if(ctot){
-      const mangaMs=(sums['honpen']||0)+(sums['name']||0)+(sums['package']||0);
+      const gMan=(sums['honpen']||0)+(sums['name']||0)+(sums['package']||0);
+      const gMkt=(sums['research']||0)+(sums['promo']||0);
+      const gOth=Math.max(0, ctot-gMan-gMkt);
       const mkRow=(label,ms,color)=>{
         const pct=ctot?Math.round(ms/ctot*100):0;
         const el=document.createElement('div'); el.className='statrow'; el.style.fontWeight='700';
-        el.innerHTML='<div class="sn" style="width:112px">'+label+'</div><div class="sbar"><div style="width:'+pct+'%; background:'+color+'"></div></div><div class="sp">'+pct+'%</div><div class="sc" style="color:var(--ink)">'+(fmtH(ms)||'0')+'</div>';
+        el.innerHTML='<div class="sn" style="width:158px">'+label+'</div><div class="sbar"><div style="width:'+pct+'%; background:'+color+'"></div></div><div class="sp">'+pct+'%</div><div class="sc" style="color:var(--ink); width:56px">'+(fmtH(ms)||'0')+'</div>';
         catRowsEl.appendChild(el);
       };
-      mkRow('漫画 合計', mangaMs, '#c05621');
-      mkRow('実働 合計', ctot, '#6b675c');
-      if(rateEl) rateEl.innerHTML='漫画率: <b>'+Math.round(mangaMs/ctot*100)+'%</b>（漫画 '+(fmtH(mangaMs)||'0')+' ／ 実働 '+(fmtH(ctot)||'0')+'）';
-    } else {
-      if(rateEl) rateEl.innerHTML='';
+      mkRow('漫画（本編+ネーム+サムネ）', gMan, '#c05621');
+      mkRow('マーケ（リサーチ+集客）', gMkt, '#33608d');
+      mkRow('他（副業+環境+未分類）', gOth, '#8a867c');
+      const sm=document.createElement('div'); sm.className='small'; sm.style.marginTop='6px'; sm.style.textAlign='right';
+      sm.innerHTML='合計 <b>100%</b>・<b style="font-size:14px">'+(fmtH(ctot)||'0')+'</b>';
+      catRowsEl.appendChild(sm);
     }
   }
   // taicho avg last 7 days
