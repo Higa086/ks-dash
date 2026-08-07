@@ -508,7 +508,10 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <div class="small" id="diaryEdNote" style="margin-top:6px">写真は自動で縮小して保存。タップで拡大・削除。</div>
   </div>
   <div class="card">
-    <h2>タイムライン <span class="small">全期間・新しい順</span></h2>
+    <div style="display:flex; align-items:center; justify-content:space-between">
+      <h2 style="margin:0">タイムライン <span class="small">全期間・新しい順</span></h2>
+      <button class="navbtn" id="tlTgl" onclick="tlTglFn()">▾</button>
+    </div>
     <div id="diaryTL"></div>
   </div>
 </div>
@@ -1821,7 +1824,7 @@ function diaryBase(){ const c=syncCfg(); if(!c) return null;
 const PH={};
 let diCur=null, lgCur=null, diOpen=null, diaryTmr=null;
 let lgEdit=null, lgPhoto=null, lgRating=0, lgCat='other', lgFilter='all';
-const LOGCATS=[['movie','🎬 映画'],['anime','📺 アニメ'],['book','📚 漫画・本'],['place','🗺️ 場所・おでかけ'],['food','🍽️ ごはん'],['other','✨ その他']];
+const LOGCATS=[['movie','🎬 映画'],['anime','📺 アニメ'],['manga','📕 漫画'],['book','📖 本'],['place','🗺️ 場所・おでかけ'],['food','🍽️ ごはん'],['other','✨ その他']];
 
 async function dGET(p){ const b=diaryBase(); if(!b) return null;
   try{ const r=await fetch(b+'/'+p+'.json',{cache:'no-store'}); return r.ok? await r.json(): null; }catch(e){ return null; } }
@@ -1957,8 +1960,13 @@ function diTgl(){ const f=localStorage.getItem('ks_dfold')==='1'; localStorage.s
 function applyFold(){ const f=localStorage.getItem('ks_dfold')==='1';
   const l=document.getElementById('diaryList'); if(l) l.style.display=f?'none':'';
   const b=document.getElementById('diListTgl'); if(b) b.textContent=f?'▸':'▾'; }
+function tlTglFn(){ const f=localStorage.getItem('ks_tlfold')==='1'; localStorage.setItem('ks_tlfold', f?'0':'1'); applyTlFold(); }
+function applyTlFold(){ const f=localStorage.getItem('ks_tlfold')==='1';
+  const el=document.getElementById('diaryTL'); if(el) el.style.display=f?'none':'';
+  const b=document.getElementById('tlTgl'); if(b) b.textContent=f?'▸':'▾'; }
 function drawTimeline(){
   const el=document.getElementById('diaryTL'); if(!el) return;
+  applyTlFold();
   el.innerHTML='';
   const days=[];
   Object.keys(DJ.d).forEach(ym=>Object.keys(DJ.d[ym]).forEach(dk=>{ const e=DJ.d[ym][dk]; if(e&&(e.t||e.phc)) days.push([dk,e]); }));
