@@ -267,6 +267,7 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <div class="small" id="editCatSum" style="margin-top:6px"></div>
     <div class="small">メモ</div>
     <textarea id="editMemo" rows="2" placeholder="この日のメモ" oninput="saveEditMemoLite()" onchange="saveEditMemo()"></textarea>
+    <div id="edDiaryBox" class="small" style="display:none; margin-top:8px; padding:8px 10px; background:var(--bg); border:1px solid var(--line); border-radius:8px; white-space:pre-wrap; max-height:180px; overflow:auto"></div>
     <button class="btn ghost" id="edDiaryBtn" style="margin-top:8px">📖 この日の日記を開く</button>
   </div>
 </div>
@@ -472,6 +473,9 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <h2>設定・データ</h2>
     <div class="settings-row"><div><b>在籍中モード</b><div class="small">朝1h版+断る練習カウンター</div></div>
       <div class="switch" id="zaisekiSwitch" onclick="toggleZaiseki()"></div></div>
+    <div class="settings-row" style="margin-top:8px"><div><b>Appleジャーナル写真の取り込み</b><div class="small" id="impStatus">エクスポートzipを選ぶと日記に写真が入ります</div></div>
+      <button class="btn ghost" style="margin:0; flex:none" onclick="document.getElementById('impZip').click()">zip選択</button></div>
+    <input type="file" id="impZip" accept=".zip" style="display:none" onchange="importPhotosZip(this)">
     <div class="settings-row" style="margin-top:8px"><div><b>Firebase使用量</b><div class="small" id="fbUsage">未測定（測定ボタンで写真込みの全データ量を確認）</div></div>
       <button class="btn ghost" style="margin:0; flex:none" onclick="measureFb()">測定</button></div>
     <div class="bar"><div id="fbUsageBar" style="width:0%; background:var(--blue)"></div></div>
@@ -489,6 +493,7 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
       <button class="navbtn" onclick="diMove(-1)">‹</button>
       <b id="diaryTitle">—</b>
       <button class="navbtn" onclick="diMove(1)">›</button>
+      <button class="navbtn" id="diListTgl" style="margin-left:8px" onclick="diTgl()">▾</button>
     </div>
     <div class="small" id="diarySyncNote" style="margin:2px 0 4px"></div>
     <div id="diaryList"></div>
@@ -500,7 +505,11 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <button class="btn ghost" onclick="document.getElementById('diaryPhotoFile').click()">📷 写真を追加</button>
     <input type="file" id="diaryPhotoFile" accept="image/*" style="display:none" onchange="addDiaryPhoto(this)">
     <button class="btn ghost" onclick="insertDiarySkeleton()">この日の実績を挿入</button>
-    <div class="small" id="diaryEdNote" style="margin-top:6px">写真は自動で縮小して保存。写真タップで削除。</div>
+    <div class="small" id="diaryEdNote" style="margin-top:6px">写真は自動で縮小して保存。タップで拡大・削除。</div>
+  </div>
+  <div class="card">
+    <h2>タイムライン <span class="small">全期間・新しい順</span></h2>
+    <div id="diaryTL"></div>
   </div>
 </div>
 
@@ -511,7 +520,7 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
       <button class="navbtn" onclick="lgMove(-1)">‹</button>
       <b id="logTitle">—</b>
       <button class="navbtn" onclick="lgMove(1)">›</button>
-      <button class="btn ghost" id="logAllBtn" style="margin:0 0 0 8px; padding:6px 10px; font-size:12px; flex:none" onclick="lgToggleAll()">📋 全期間一覧</button>
+      <button class="btn ghost" id="logAllBtn" style="margin:0 0 0 8px; padding:6px 10px; font-size:12px; flex:none" onclick="lgToggleAll()">📚 これまで</button>
     </div>
     <div class="modes" id="logCatChips" style="margin-top:6px"></div>
     <div id="logList"></div>
@@ -1075,6 +1084,13 @@ function renderEditor(k){
   const dt=new Date(k);
   document.getElementById('editTitle').textContent=dt.toLocaleDateString('ja-JP',{month:'long',day:'numeric',weekday:'short'})+' の記録';
   const dbn=document.getElementById('edDiaryBtn'); if(dbn) dbn.onclick=()=>{ diCur=k.slice(0,7); showPage('diary'); openDiary(k); };
+  const dbx=document.getElementById('edDiaryBox');
+  if(dbx){ dbx.style.display='none';
+    const ymk=k.slice(0,7);
+    const showDx=()=>{ const e2=(DJ.d[ymk]||{})[k]; if(e2&&e2.t){ dbx.textContent=e2.t; dbx.style.display='block'; } };
+    showDx();
+    if(!DJ.d[ymk]) dGET('d/'+ymk).then(rm2=>{ if(rm2){ diMergeMonth(DJ.d,ymk,rm2); dsave(); showDx(); } });
+  }
   const em=document.getElementById('editModes'); em.innerHTML='';
   MODES.forEach(m=>{
     const c=document.createElement('div'); c.className='chip mini'+(rec.mode===m.id?' on':'');
@@ -1844,10 +1860,14 @@ async function renderDiary(){
   if(!diCur) diCur=todayKey().slice(0,7);
   const [y,m]=diCur.split('-').map(Number);
   document.getElementById('diaryTitle').textContent=y+'年'+m+'月';
+  applyFold();
   drawDiaryList();
   const rm=await dGET('d/'+diCur);
   if(diMergeMonth(DJ.d,diCur,rm)){ dsave(); drawDiaryList(); if(diOpen&&diOpen.slice(0,7)===diCur) fillDiaryEd(diOpen); }
   flushDiaryDirty();
+  if(!window._tlLoaded){ const all=await dGET('d');
+    if(all){ Object.keys(all).forEach(m2=>diMergeMonth(DJ.d,m2,all[m2])); dsave(); window._tlLoaded=1; } }
+  drawTimeline();
 }
 function drawDiaryList(){
   const [y,m]=diCur.split('-').map(Number);
@@ -1856,6 +1876,7 @@ function drawDiaryList(){
   for(let d=last; d>=1; d--){
     const k=diCur+'-'+String(d).padStart(2,'0');
     if(k>today) continue;
+    if(diCur<'2026-06' && !(mon[k]&&(mon[k].t||mon[k].phc))) continue;
     const e=mon[k]; const dt=new Date(y,m-1,d);
     const row=document.createElement('div'); row.className='dirow'+(e&&e.t?'':' empty');
     row.innerHTML='<span class="dd">'+m+'/'+d+' '+'日月火水木金土'[dt.getDay()]+'</span>'+
@@ -1885,8 +1906,8 @@ function drawDiaryPhotos(k){
   const w=document.getElementById('diaryPhotos'); w.innerHTML='';
   Object.keys(PH[k]||{}).sort().forEach(id=>{
     const img=document.createElement('img'); img.src=PH[k][id]; img.loading='lazy';
-    img.onclick=()=>{ if(confirm('この写真を削除しますか？')){
-      delete PH[k][id]; dDEL('p/'+k.slice(0,7)+'/'+k+'/'+id); setPhc(k); drawDiaryPhotos(k); } };
+    img.onclick=()=>{ showPhotoView(PH[k][id], ()=>{
+      delete PH[k][id]; dDEL('p/'+k.slice(0,7)+'/'+k+'/'+id); setPhc(k); drawDiaryPhotos(k); }); };
     w.appendChild(img);
   });
 }
@@ -1903,7 +1924,7 @@ function saveDiaryText(){
   const t=document.getElementById('diaryText').value;
   if(t===(prev.t||'')) return;
   mon[k]={t, u:Date.now(), phc:prev.phc||0};
-  DJ.dirty['d/'+ym+'/'+k]=1; dsave(); drawDiaryList(); flushDiaryDirty();
+  DJ.dirty['d/'+ym+'/'+k]=1; dsave(); drawDiaryList(); drawTimeline(); flushDiaryDirty();
 }
 async function addDiaryPhoto(inp){
   const f=inp.files&&inp.files[0]; inp.value=''; if(!f||!diOpen) return;
@@ -1931,33 +1952,136 @@ function diMove(n){ const [y,m]=diCur.split('-').map(Number);
   const d=new Date(y,m-1+n,1); diCur=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
   document.getElementById('diaryEd').style.display='none'; diOpen=null; renderDiary(); }
 
+// ---- タイムライン・折りたたみ・写真拡大・写真取り込み ----
+function diTgl(){ const f=localStorage.getItem('ks_dfold')==='1'; localStorage.setItem('ks_dfold', f?'0':'1'); applyFold(); }
+function applyFold(){ const f=localStorage.getItem('ks_dfold')==='1';
+  const l=document.getElementById('diaryList'); if(l) l.style.display=f?'none':'';
+  const b=document.getElementById('diListTgl'); if(b) b.textContent=f?'▸':'▾'; }
+function drawTimeline(){
+  const el=document.getElementById('diaryTL'); if(!el) return;
+  el.innerHTML='';
+  const days=[];
+  Object.keys(DJ.d).forEach(ym=>Object.keys(DJ.d[ym]).forEach(dk=>{ const e=DJ.d[ym][dk]; if(e&&(e.t||e.phc)) days.push([dk,e]); }));
+  days.sort((a,b)=>b[0].localeCompare(a[0]));
+  days.forEach(pair=>{
+    const dk=pair[0], e=pair[1];
+    const dt=new Date(dk); const c=dayColor(dt,dk);
+    const w=document.createElement('div');
+    w.style.cssText='padding:10px 2px; border-bottom:1px solid var(--line); cursor:pointer;';
+    w.innerHTML='<div style="font-weight:700; font-size:12.5px;'+(c?' color:'+c:'')+'">'+dk.slice(0,4)+'/'+parseInt(dk.slice(5,7))+'/'+parseInt(dk.slice(8))+'（'+'日月火水木金土'[dt.getDay()]+'）'+(e.phc?' <span class="small">📷'+e.phc+'</span>':'')+'</div>'+
+      '<div class="small" style="margin-top:2px; white-space:pre-wrap; display:-webkit-box; -webkit-line-clamp:10; -webkit-box-orient:vertical; overflow:hidden;">'+dEsc(e.t||'')+'</div>';
+    w.onclick=()=>{ diCur=dk.slice(0,7); renderDiary(); openDiary(dk); };
+    el.appendChild(w);
+  });
+  if(!days.length) el.innerHTML='<div class="small">まだ日記がありません</div>';
+}
+function showPhotoView(url,onDel){
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed; inset:0; background:rgba(0,0,0,.9); z-index:999; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:16px;';
+  const img=document.createElement('img'); img.src=url;
+  img.style.cssText='max-width:100%; max-height:78vh; border-radius:10px;';
+  img.onclick=(ev)=>ev.stopPropagation();
+  const bar=document.createElement('div');
+  const del=document.createElement('button'); del.className='btn'; del.textContent='🗑 削除';
+  del.style.cssText='background:#cf5045; border-color:#cf5045;';
+  del.onclick=(ev)=>{ ev.stopPropagation(); if(confirm('この写真を削除しますか？')){ if(onDel) onDel(); document.body.removeChild(ov); } };
+  const cls=document.createElement('button'); cls.className='btn ghost'; cls.textContent='閉じる'; cls.style.marginLeft='12px';
+  cls.onclick=(ev)=>{ ev.stopPropagation(); document.body.removeChild(ov); };
+  bar.appendChild(del); bar.appendChild(cls);
+  ov.appendChild(img); ov.appendChild(bar);
+  ov.onclick=()=>{ document.body.removeChild(ov); };
+  document.body.appendChild(ov);
+}
+async function importPhotosZip(inp){
+  const f=inp.files&&inp.files[0]; inp.value=''; if(!f) return;
+  const st=document.getElementById('impStatus');
+  const say=(t)=>{ if(st) st.textContent=t; };
+  try{
+    say('準備中…');
+    if(!window.JSZip){
+      await new Promise((res,rej)=>{ const sc=document.createElement('script');
+        sc.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+        sc.onload=res; sc.onerror=rej; document.head.appendChild(sc); });
+    }
+    const zip=await JSZip.loadAsync(f);
+    const files=Object.keys(zip.files);
+    const entries=files.filter(p=>/Entries\/[^\/]+\.html?$/i.test(p) && p.indexOf('/._')<0);
+    if(!entries.length){ say('Entriesフォルダが見つかりません（AppleJournalのzipを選択してください）'); return; }
+    let done=0, nph=0, fails=0;
+    for(const p of entries){
+      const html=await zip.file(p).async('string');
+      let dkey=null;
+      const md=html.match(/pageHeader">\s*(\d{4})年(\d{1,2})月(\d{1,2})日/);
+      if(md) dkey=md[1]+'-'+String(md[2]).padStart(2,'0')+'-'+String(md[3]).padStart(2,'0');
+      else { const fm=p.match(/(\d{4}-\d{2}-\d{2})/); if(fm) dkey=fm[1]; }
+      done++;
+      if(!dkey) continue;
+      const seen={};
+      const ms=[...html.matchAll(/src="([^"]*Resources\/([^"\/]+))"/g)];
+      for(const m of ms){
+        let name=m[2]; try{ name=decodeURIComponent(name); }catch(e){}
+        if(seen[name]) continue; seen[name]=1;
+        if(!/\.(jpe?g|png|gif|webp|heic)$/i.test(name)) continue;
+        const zp=files.find(fp=>fp.indexOf('/._')<0 && fp.endsWith('Resources/'+name));
+        if(!zp){ fails++; continue; }
+        try{
+          const blob=await zip.file(zp).async('blob');
+          const url=await new Promise((res,rej)=>{
+            const tm=setTimeout(()=>rej(new Error('timeout')),20000);
+            shrinkImage(new File([blob],name,{type:'image/jpeg'}), u=>{ clearTimeout(tm); res(u); });
+          });
+          const id='j'+Math.random().toString(36).slice(2,8);
+          const ok=await dPUT('p/'+dkey.slice(0,7)+'/'+dkey+'/'+id, url);
+          if(ok) nph++; else fails++;
+        }catch(e){ fails++; }
+      }
+      say('取り込み中… '+done+'/'+entries.length+'（写真'+nph+'枚'+(fails?'・失敗'+fails:'')+'）');
+    }
+    say('枚数を集計中…');
+    const pAll=await dGET('p');
+    if(pAll){
+      for(const ym of Object.keys(pAll)){
+        const patch={};
+        for(const dk of Object.keys(pAll[ym])){
+          patch[dk+'/phc']=Object.keys(pAll[ym][dk]).length;
+          patch[dk+'/u']=Date.now();
+        }
+        await fetch(diaryBase()+'/d/'+ym+'.json',{method:'PATCH',body:JSON.stringify(patch)});
+      }
+    }
+    window._tlLoaded=0;
+    say('完了: 写真'+nph+'枚を取り込みました'+(fails?'（失敗'+fails+'枚）':''));
+    toast('写真の取り込みが完了しました');
+  }catch(e){ say('エラー: '+(e&&e.message?e.message:e)); }
+}
+
 // ---- ログ ----
 function lgCatLabel(id){ const c=LOGCATS.find(x=>x[0]===id); return c?c[1]:'✨'; }
 let lgAll=false;
 function lgToggleAll(){ lgAll=!lgAll; renderLog(); }
 function drawLogListAll(){
   const list=document.getElementById('logList'); list.innerHTML='';
-  const yms=Object.keys(DJ.x).sort().reverse();
+  const all=[];
+  Object.keys(DJ.x).forEach(ym=>{ const mon=DJ.x[ym]||{};
+    Object.keys(mon).forEach(id=>{ const it=mon[id]; if(!it||it.del) return;
+      all.push(Object.assign({id:id,ym:ym},it)); }); });
   let count=0;
-  yms.forEach(ym=>{
-    const mon=DJ.x[ym]||{};
-    const items=Object.keys(mon).map(id=>Object.assign({id:id,ym:ym},mon[id]))
-      .filter(it=>!it.del).filter(it=>lgFilter==='all'||it.c===lgFilter)
-      .sort((a,b)=>(b.d||'').localeCompare(a.d||''));
+  LOGCATS.forEach(pair=>{
+    if(lgFilter!=='all' && lgFilter!==pair[0]) return;
+    const items=all.filter(it=>(it.c||'other')===pair[0]).sort((a,b)=>(b.d||'').localeCompare(a.d||''));
     if(!items.length) return;
     const h=document.createElement('div');
-    h.innerHTML='<b style="font-size:13px">'+parseInt(ym.slice(0,4))+'年'+parseInt(ym.slice(5))+'月</b><span class="small"> ('+items.length+'件)</span>';
-    h.style.cssText='margin:12px 0 2px; border-bottom:2px solid var(--line); padding-bottom:3px;';
+    h.innerHTML='<b style="font-size:13.5px">'+pair[1]+'</b><span class="small"> '+items.length+'件</span>';
+    h.style.cssText='margin:14px 0 2px; border-bottom:2px solid var(--line); padding-bottom:3px;';
     list.appendChild(h);
     items.forEach(it=>{ count++;
       const row=document.createElement('div'); row.className='dirow';
-      row.innerHTML='<span class="dd">'+(it.d||'').slice(5).replace('-','/')+'</span>'+
+      const dd=(it.d||'').replace(/^(\d{4})-0?(\d+)-0?(\d+)$/, '$1/$2/$3');
+      row.innerHTML='<span class="dd" style="min-width:76px">'+dd+'</span>'+
         '<span class="pv"><b style="color:var(--fg)">'+dEsc(it.n)+'</b>'+(it.m?' — '+dEsc(it.m):'')+'</span>'+
-        '<span class="small">'+lgCatLabel(it.c).split(' ')[0]+
-        (it.r?'<span style="color:var(--accent)"> '+'★'.repeat(it.r)+'</span>':'')+(it.ph?' 📷':'')+'</span>';
+        '<span>'+(it.r?'<span style="color:var(--accent)">'+'★'.repeat(it.r)+'</span>':'<span class="small">—</span>')+(it.ph?' 📷':'')+'</span>';
       row.onclick=()=>{ lgAll=false; lgCur=it.ym; renderLog().then(()=>editLogItem(it.id)); };
-      list.appendChild(row);
-    });
+      list.appendChild(row); });
   });
   if(!count) list.innerHTML='<div class="small" style="padding:8px 2px">記録がありません</div>';
 }
@@ -1966,7 +2090,7 @@ async function renderLog(){
   const ab=document.getElementById('logAllBtn');
   if(ab){ ab.style.background=lgAll?'var(--gold)':''; ab.style.borderColor=lgAll?'var(--accent)':''; }
   if(lgAll){
-    document.getElementById('logTitle').textContent='全期間';
+    document.getElementById('logTitle').textContent='これまでの記録';
     drawLogChips(); drawLogForm();
     const all=await dGET('x');
     if(all){ Object.keys(all).forEach(ym=>diMergeMonth(DJ.x,ym,all[ym])); dsave(); }
@@ -2039,7 +2163,7 @@ async function editLogItem(id){
 }
 function drawLogPhoto(){ const w=document.getElementById('logPhotoWrap'); w.innerHTML='';
   if(!lgPhoto) return; const img=document.createElement('img'); img.src=lgPhoto;
-  img.onclick=()=>{ if(confirm('写真を外しますか？')){ lgPhoto=null; drawLogPhoto(); } };
+  img.onclick=()=>{ showPhotoView(lgPhoto, ()=>{ lgPhoto=null; drawLogPhoto(); }); };
   w.appendChild(img); }
 function pickLogPhoto(inp){ const f=inp.files&&inp.files[0]; inp.value=''; if(!f) return;
   shrinkImage(f, url=>{ lgPhoto=url; drawLogPhoto(); }); }
