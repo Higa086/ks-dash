@@ -305,6 +305,14 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
       <div class="small" id="tmInfo" style="margin-top:10px"></div>
     </div>
   </div>
+  <div class="card">
+    <div class="calhead">
+      <button class="navbtn" onclick="mmMove(-1)">‹</button>
+      <b id="mmTitle">—</b>
+      <button class="navbtn" onclick="mmMove(1)">›</button>
+    </div>
+    <textarea id="mmText" placeholder="なんでもメモ（自動保存・月ごと）" style="border:none; background:transparent; padding:6px 2px; min-height:140px; resize:none; overflow:hidden; box-shadow:none" oninput="mmLite(this)" onchange="mmSave()"></textarea>
+  </div>
 </div>
 
 <!-- ============ 統計 ============ -->
@@ -500,11 +508,12 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
   </div>
   <div class="card" id="diaryEd" style="display:none">
     <h2 id="diaryEdTitle">—</h2>
-    <textarea id="diaryText" rows="8" placeholder="日記（1行でもOK）" oninput="diaryLite()" onchange="saveDiaryText()"></textarea>
+    <textarea id="diaryText" rows="8" placeholder="日記（1行でもOK）" style="resize:none; overflow:hidden" oninput="diaryLite(); autoGrow(this)" onchange="saveDiaryText()"></textarea>
     <div id="diaryPhotos" class="phgrid"></div>
     <button class="btn ghost" onclick="document.getElementById('diaryPhotoFile').click()">📷 写真を追加</button>
     <input type="file" id="diaryPhotoFile" accept="image/*" style="display:none" onchange="addDiaryPhoto(this)">
     <button class="btn ghost" onclick="insertDiarySkeleton()">この日の実績を挿入</button>
+    <button class="btn ghost" style="color:#cf5045; border-color:#cf5045" onclick="delDiary()">🗑 削除</button>
     <div class="small" id="diaryEdNote" style="margin-top:6px">写真は自動で縮小して保存。タップで拡大・削除。</div>
   </div>
   <div class="card">
@@ -560,7 +569,7 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
 // ================= data =================
 const KEY='kodo_shishin_v2';
 let DB = load();
-DB.todos=DB.todos||{}; DB.notes=DB.notes||{t:'',u:0};
+DB.todos=DB.todos||{}; DB.notes=DB.notes||{t:'',u:0}; DB.memos=DB.memos||{};
 const DEV = getDev();
 function getDev(){ let d=localStorage.getItem('ks_dev'); if(!d){ d='d'+Math.random().toString(36).slice(2,10); localStorage.setItem('ks_dev',d);} return d; }
 function load(){
@@ -592,7 +601,7 @@ function setDot(state,label){ const el=document.getElementById('syncDot');
 function syncUrl(){ const c=syncCfg(); if(!c) return null;
   let db=c.db.trim().replace(/\/+$/,''); return db+'/r/'+encodeURIComponent(c.code.trim())+'.json'; }
 function payload(){
-  return {v:2, from:DEV, t:Date.now(), days:DB.days, weeks:DB.weeks, todos:DB.todos||{}, notes:DB.notes||{t:'',u:0},
+  return {v:2, from:DEV, t:Date.now(), days:DB.days, weeks:DB.weeks, todos:DB.todos||{}, memos:DB.memos||{}, notes:DB.notes||{t:'',u:0},
     st:{zaiseki:!!DB.settings.zaiseki, zu:DB.settings.zu||0, mGoal:DB.settings.mGoal||70, gu:DB.settings.gu||0}};
 }
 function schedulePush(){ if(!syncCfg()) return;
@@ -610,7 +619,7 @@ async function pushNow(){
   }
   const pl=payload();
   const body=JSON.stringify(pl);
-  const cmp=JSON.stringify([DB.days,DB.weeks,pl.st]);
+  const cmp=JSON.stringify([DB.days,DB.weeks,DB.todos,DB.memos,DB.notes,pl.st]);
   if(cmp===lastPushed) return;
   try{ const r=await fetch(url,{method:'PATCH',body});
     if(r.ok){ lastPushed=cmp; lastRemoteT=pl.t; setDot('on','同期中'); } else setDot('err','エラー');
@@ -646,7 +655,8 @@ function mergeRemote(rm){
     const merged=mergeDay(DB.days[k], RD[k]);
     if(!sameDay(DB.days[k], merged)){ DB.days[k]=merged; changed=true; }
   });
-  ['weeks','todos'].forEach(part=>{
+  DB.memos=DB.memos||{};
+  ['weeks','todos','memos'].forEach(part=>{
     const R=rm[part]||{};
     Object.keys(R).forEach(k=>{
       const l=DB[part][k], r=R[k];
@@ -1786,7 +1796,7 @@ function showPage(p){
   document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x.dataset.page===p));
   if(p==='cal') renderCal();
   if(p==='stats'){ renderStats(); renderWeek(); }
-  if(p==='todo') renderTodo();
+  if(p==='todo'){ renderTodo(); renderMemo(); }
   if(p==='diary') renderDiary();
   if(p==='log') renderLog();
   window.scrollTo(0,0);
@@ -1824,7 +1834,7 @@ function diaryBase(){ const c=syncCfg(); if(!c) return null;
 const PH={};
 let diCur=null, lgCur=null, diOpen=null, diaryTmr=null;
 let lgEdit=null, lgPhoto=null, lgRating=0, lgCat='other', lgFilter='all';
-const LOGCATS=[['movie','🎬 映画'],['anime','📺 アニメ'],['manga','📕 漫画'],['book','📖 本'],['place','🗺️ 場所・おでかけ'],['food','🍽️ ごはん'],['other','✨ その他']];
+const LOGCATS=[['movie','🎬 映画・ドラマ','#6b5bd6'],['anime','📺 アニメ','#e0763f'],['manga','📕 漫画','#c94f6d'],['book','📖 本','#3d7a4f'],['place','🗺️ 場所・おでかけ','#33608d'],['food','🍽️ ごはん','#b89a1e'],['other','✨ その他','#8a867c']];
 
 async function dGET(p){ const b=diaryBase(); if(!b) return null;
   try{ const r=await fetch(b+'/'+p+'.json',{cache:'no-store'}); return r.ok? await r.json(): null; }catch(e){ return null; } }
@@ -1893,6 +1903,7 @@ function fillDiaryEd(k){
   const e=(DJ.d[k.slice(0,7)]||{})[k];
   const ta=document.getElementById('diaryText');
   if(document.activeElement!==ta) ta.value=(e&&e.t)||'';
+  autoGrow(ta);
 }
 async function openDiary(k){
   diOpen=k; diCur=k.slice(0,7);
@@ -1964,6 +1975,43 @@ function tlTglFn(){ const f=localStorage.getItem('ks_tlfold')==='1'; localStorag
 function applyTlFold(){ const f=localStorage.getItem('ks_tlfold')==='1';
   const el=document.getElementById('diaryTL'); if(el) el.style.display=f?'none':'';
   const b=document.getElementById('tlTgl'); if(b) b.textContent=f?'▸':'▾'; }
+function autoGrow(el){ if(!el) return; el.style.height='auto'; el.style.height=(el.scrollHeight+2)+'px'; }
+let mmCur=null, mmTmr=null;
+function mmMove(n){ const [y,m]=mmCur.split('-').map(Number);
+  const d=new Date(y,m-1+n,1); mmCur=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); renderMemo(); }
+function renderMemo(){
+  if(!mmCur) mmCur=todayKey().slice(0,7);
+  const t=document.getElementById('mmTitle'); if(!t) return;
+  const [y,m]=mmCur.split('-').map(Number);
+  t.textContent=y+'年'+m+'月のメモ';
+  const ta=document.getElementById('mmText');
+  const rec=(DB.memos||{})[mmCur];
+  if(document.activeElement!==ta) ta.value=(rec&&rec.t)||'';
+  autoGrow(ta);
+}
+function mmLite(el){ autoGrow(el); clearTimeout(mmTmr); mmTmr=setTimeout(mmSave,1200); }
+function mmSave(){
+  clearTimeout(mmTmr);
+  const ta=document.getElementById('mmText'); if(!ta||!mmCur) return;
+  DB.memos=DB.memos||{};
+  const prev=DB.memos[mmCur];
+  if(prev && prev.t===ta.value) return;
+  if(!prev && !ta.value) return;
+  DB.memos[mmCur]={t:ta.value,u:Date.now()};
+  persist(); schedulePush();
+}
+async function delDiary(){
+  const k=diOpen; if(!k) return;
+  if(!confirm(parseInt(k.slice(5,7))+'/'+parseInt(k.slice(8))+' の日記を削除しますか？（写真も削除されます）')) return;
+  const ym=k.slice(0,7);
+  const mon=DJ.d[ym]=DJ.d[ym]||{};
+  mon[k]={t:'',u:Date.now(),phc:0};
+  DJ.dirty['d/'+ym+'/'+k]=1; dsave();
+  dDEL('p/'+ym+'/'+k); delete PH[k];
+  document.getElementById('diaryEd').style.display='none'; diOpen=null;
+  drawDiaryList(); drawTimeline(); flushDiaryDirty();
+  toast('削除しました');
+}
 function drawTimeline(){
   const el=document.getElementById('diaryTL'); if(!el) return;
   applyTlFold();
@@ -2079,8 +2127,8 @@ function drawLogListAll(){
     const items=all.filter(it=>(it.c||'other')===pair[0]).sort((a,b)=>(b.d||'').localeCompare(a.d||''));
     if(!items.length) return;
     const h=document.createElement('div');
-    h.innerHTML='<b style="font-size:13.5px">'+pair[1]+'</b><span class="small"> '+items.length+'件</span>';
-    h.style.cssText='margin:14px 0 2px; border-bottom:2px solid var(--line); padding-bottom:3px;';
+    h.innerHTML=pair[1]+'<span style="opacity:.85; font-weight:600; font-size:11px; margin-left:8px">'+items.length+'件</span>';
+    h.style.cssText='margin:14px 0 4px; background:'+(pair[2]||'#8a867c')+'; color:#fff; border-radius:8px; padding:6px 12px; font-weight:700; font-size:13.5px;';
     list.appendChild(h);
     items.forEach(it=>{ count++;
       const row=document.createElement('div'); row.className='dirow';
@@ -2124,9 +2172,11 @@ function drawLogChips(){
 function drawLogList(){
   const list=document.getElementById('logList'); list.innerHTML='';
   const mon=DJ.x[lgCur]||{};
+  const CIDX={}; LOGCATS.forEach((pp,i)=>{ CIDX[pp[0]]=i; });
   const items=Object.keys(mon).map(id=>Object.assign({id:id},mon[id]))
     .filter(it=>!it.del).filter(it=>lgFilter==='all'||it.c===lgFilter)
-    .sort((a,b)=>(b.d||'').localeCompare(a.d||''));
+    .sort((a,b)=>{ const ca=(a.c in CIDX)?CIDX[a.c]:9, cb=(b.c in CIDX)?CIDX[b.c]:9;
+      if(ca!==cb) return ca-cb; return (b.d||'').localeCompare(a.d||''); });
   if(!items.length){ list.innerHTML='<div class="small" style="padding:8px 2px">この月の記録はまだありません</div>'; return; }
   items.forEach(it=>{
     const row=document.createElement('div'); row.className='dirow';
