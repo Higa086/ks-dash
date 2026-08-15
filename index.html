@@ -560,8 +560,9 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <h2 id="logFormTitle">記録を追加</h2>
     <div class="modes" id="logFormCats"></div>
     <input type="text" id="logName" placeholder="タイトル（作品名・店名・場所）">
+    <input type="text" id="logAuthor" placeholder="作者・監督・スタジオなど（任意）" style="margin-top:6px">
     <div id="logStars" style="font-size:22px; letter-spacing:5px; margin:6px 0"></div>
-    <input type="text" id="logMemo" placeholder="一言メモ（任意）">
+    <textarea id="logMemo" rows="2" placeholder="メモ（任意・改行OK）" style="resize:none; overflow:hidden; margin-top:6px" oninput="autoGrow(this)"></textarea>
     <input type="date" id="logDate" style="margin-top:6px">
     <div id="logPhotoWrap" class="phgrid"></div>
     <div style="margin-top:6px">
@@ -780,8 +781,29 @@ const ITEMS_DEF=[
  {id:'diary', label:'日記', hint:'座学枠（20:30-21:30）内で', short:'日記'},
 ];
 let ITEMS=ITEMS_DEF;
-function loadItems(){ const r=DB.rt; ITEMS=(r&&Array.isArray(r.v)&&r.v.length)? r.v : ITEMS_DEF; }
-function saveItems(){ DB.rt={v:ITEMS, u:Date.now()}; persist(); schedulePush(); renderAll(); renderRtEdit(); }
+function loadItems(){ const r=DB.rt; ITEMS=(r&&Array.isArray(r.v)&&r.v.length)? r.v : ITEMS_DEF;
+  if(r&&Array.isArray(r.v)&&r.v.length&&!(r.hist&&r.hist.length)){
+    r.hist=[{from:todayKey(), v:JSON.parse(JSON.stringify(r.v))}]; persist(); schedulePush();
+  }
+}
+function saveItems(){
+  const tk=todayKey();
+  const snap=JSON.parse(JSON.stringify(ITEMS));
+  DB.rt=DB.rt||{};
+  DB.rt.v=snap; DB.rt.u=Date.now();
+  DB.rt.hist=DB.rt.hist||[];
+  const last=DB.rt.hist[DB.rt.hist.length-1];
+  if(last && last.from===tk) last.v=snap;
+  else DB.rt.hist.push({from:tk, v:snap});
+  persist(); schedulePush(); renderAll(); renderRtEdit();
+}
+function itemsFor(k){
+  const r=DB.rt;
+  if(!(r&&r.hist&&r.hist.length)) return ITEMS;
+  let best=null;
+  r.hist.forEach(h=>{ if(h.from<=k && (!best||h.from>best.from)) best=h; });
+  return best? best.v : ITEMS_DEF;
+}
 function rtEdit(i){
   const it=ITEMS[i];
   const label=prompt('ルーティン名', it.label); if(label===null) return;
@@ -1126,10 +1148,11 @@ function renderCal(){
     e.className=cls;
     let rbar='';
     if(rec && k<=tk){
-      const done=ITEMS.filter(it=>rec.checks&&rec.checks[it.id]).length;
-      const pct=Math.round(done/ITEMS.length*100);
+      const its=itemsFor(k);
+      const done=its.filter(it=>rec.checks&&rec.checks[it.id]).length;
+      const pct=its.length?Math.round(done/its.length*100):0;
       const bc=pct>=100?'#7c3aed':pct>=67?'#7cb342':pct>=34?'#e0a52d':'#cf5045';
-      rbar='<div class="rbar" title="ルーティン '+done+'/'+ITEMS.length+'"><div style="width:'+pct+'%; background:'+bc+'"></div></div>';
+      rbar='<div class="rbar" title="ルーティン '+done+'/'+its.length+'"><div style="width:'+pct+'%; background:'+bc+'"></div></div>';
     }
     const subs=[];
     if(rec&&rec.pages) subs.push(fmtP(rec.pages)+'P');
@@ -1167,7 +1190,7 @@ function renderEditor(k){
     em.appendChild(c);
   });
   const ec=document.getElementById('editChecks'); ec.innerHTML='';
-  ITEMS.forEach(it=>{
+  itemsFor(k).forEach(it=>{
     const c=document.createElement('div'); c.className='chip mini'+((rec.checks&&rec.checks[it.id])?' ok':'');
     c.textContent=((rec.checks&&rec.checks[it.id])?'✓ ':'')+it.short;
     c.onclick=()=>{ const r=day(k); r.checks[it.id]=!r.checks[it.id]; touch(r); save(); renderCal(); renderEditor(k); renderAll(); };
@@ -1464,6 +1487,7 @@ function renderStats(){
       const k=todayKey(dt); const r=DB.days[k];
       const rest=r&&isRest(r.mode);
       const did=r&&r.checks&&r.checks[it.id];
+      if(!itemsFor(k).some(x=>x.id===it.id) && !did) continue;
       if(rest && !did) continue;
       den30++;
       if(did) done30++;
@@ -2282,7 +2306,7 @@ function drawLogListAll(){
       const row=document.createElement('div'); row.className='dirow';
       const dd=(it.d||'').replace(/^(\d{4})-0?(\d+)-0?(\d+)$/, '$1/$2/$3');
       row.innerHTML='<span class="dd" style="min-width:76px">'+dd+'</span>'+
-        '<span class="pv"><b style="color:var(--fg)">'+dEsc(it.n)+'</b>'+(it.m?' — '+dEsc(it.m):'')+'</span>'+
+        '<span class="pv"><b style="color:var(--fg)">'+dEsc(it.n)+'</b>'+(it.a?'<span class="small"> ／'+dEsc(it.a)+'</span>':'')+(it.m?' — '+dEsc(it.m.split('\n')[0]):'')+'</span>'+
         '<span>'+(it.r?'<span style="color:var(--accent)">'+'★'.repeat(it.r)+'</span>':'<span class="small">—</span>')+(it.ph?' 📷':'')+'</span>';
       row.onclick=()=>{ showLogDetail(it); };
       list.appendChild(row); });
@@ -2329,7 +2353,7 @@ function drawLogList(){
   items.forEach(it=>{
     const row=document.createElement('div'); row.className='dirow';
     row.innerHTML='<span class="dd">'+(it.d||'').slice(5).replace('-','/')+'</span>'+
-      '<span class="pv"><b style="color:var(--fg)">'+dEsc(it.n)+'</b>'+(it.m?' — '+dEsc(it.m):'')+'</span>'+
+      '<span class="pv"><b style="color:var(--fg)">'+dEsc(it.n)+'</b>'+(it.a?'<span class="small"> ／'+dEsc(it.a)+'</span>':'')+(it.m?' — '+dEsc(it.m.split('\n')[0]):'')+'</span>'+
       '<span class="small">'+lgCatLabel(it.c).split(' ')[0]+
       (it.r?'<span style="color:var(--accent)"> '+'★'.repeat(it.r)+'</span>':'')+(it.ph?' 📷':'')+'</span>';
     row.onclick=()=>showLogDetail(Object.assign({ym:lgCur},it));
@@ -2344,6 +2368,7 @@ function showLogDetail(it){
   const dd=(it.d||'').replace(/^(\d{4})-0?(\d+)-0?(\d+)$/, '$1/$2/$3');
   card.innerHTML='<div class="small">'+lgCatLabel(it.c)+'　'+dd+'</div>'+
     '<h2 style="margin:6px 0 4px">'+dEsc(it.n||'')+'</h2>'+
+    (it.a? '<div class="small">'+dEsc(it.a)+'</div>':'')+
     (it.r? '<div style="color:var(--accent); font-size:17px; letter-spacing:3px">'+'★'.repeat(it.r)+'</div>':'')+
     (it.m? '<div style="margin-top:10px; white-space:pre-wrap; font-size:13.5px; line-height:1.7">'+dEsc(it.m)+'</div>'
          : '<div class="small" style="margin-top:10px">メモはありません</div>')+
@@ -2381,7 +2406,8 @@ function drawStars(){ const w=document.getElementById('logStars'); w.innerHTML='
     w.appendChild(s); } }
 function resetLogForm(){ lgEdit=null; lgPhoto=null; lgRating=0; lgCat='other';
   const n=document.getElementById('logName'); if(!n) return;
-  n.value=''; document.getElementById('logMemo').value='';
+  n.value=''; document.getElementById('logAuthor').value='';
+  const lmr=document.getElementById('logMemo'); lmr.value=''; lmr.style.height='';
   document.getElementById('logDate').value=todayKey();
   document.getElementById('logPhotoWrap').innerHTML='';
   drawLogForm(); }
@@ -2389,7 +2415,8 @@ async function editLogItem(id){
   const it=(DJ.x[lgCur]||{})[id]; if(!it) return;
   lgEdit=id; lgRating=it.r||0; lgCat=it.c||'other'; lgPhoto=null;
   document.getElementById('logName').value=it.n||'';
-  document.getElementById('logMemo').value=it.m||'';
+  document.getElementById('logAuthor').value=it.a||'';
+  const lme=document.getElementById('logMemo'); lme.value=it.m||''; lme.style.height=''; autoGrow(lme);
   document.getElementById('logDate').value=it.d||todayKey();
   document.getElementById('logPhotoWrap').innerHTML='';
   drawLogForm();
@@ -2409,7 +2436,7 @@ async function saveLogItem(){
   const ym=d.slice(0,7);
   const id=lgEdit||('x'+Date.now().toString(36));
   const prev=lgEdit? ((DJ.x[lgCur]||{})[lgEdit]||{}):{};
-  const it={d:d, c:lgCat, n:n, r:lgRating, m:document.getElementById('logMemo').value.trim(),
+  const it={d:d, c:lgCat, n:n, a:document.getElementById('logAuthor').value.trim(), r:lgRating, m:document.getElementById('logMemo').value.trim(),
             u:Date.now(), ph: lgPhoto?1:(lgEdit&&prev.ph?1:0)};
   if(lgEdit && ym!==lgCur){ // 日付変更で月が移った: 旧月に墓標
     const old=DJ.x[lgCur]||{};
