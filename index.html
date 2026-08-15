@@ -1946,7 +1946,7 @@ function diaryBase(){ const c=syncCfg(); if(!c) return null;
 const PH={};
 let diCur=null, lgCur=null, diOpen=null, diaryTmr=null;
 let lgEdit=null, lgPhoto=null, lgRating=0, lgCat='other', lgFilter='all';
-const LOGCATS=[['movie','🎬 映画・ドラマ','#6b5bd6'],['anime','📺 アニメ','#e0763f'],['manga','📕 漫画','#c94f6d'],['book','📖 本','#3d7a4f'],['place','🗺️ 場所・おでかけ','#33608d'],['food','🍽️ ごはん','#b89a1e'],['other','✨ その他','#8a867c']];
+const LOGCATS=[['book','📖 本','#3d7a4f'],['movie','🎬 映画・ドラマ','#6b5bd6'],['anime','📺 アニメ','#e0763f'],['manga','📕 漫画','#c94f6d'],['place','🗺️ 場所・おでかけ・ごはん','#33608d'],['other','✨ その他','#8a867c']];
 
 async function dGET(p){ const b=diaryBase(); if(!b) return null;
   try{ const r=await fetch(b+'/'+p+'.json',{cache:'no-store'}); return r.ok? await r.json(): null; }catch(e){ return null; } }
@@ -2284,8 +2284,9 @@ async function importPhotosZip(inp){
 }
 
 // ---- ログ ----
-function lgCatLabel(id){ const c=LOGCATS.find(x=>x[0]===id); return c?c[1]:'✨'; }
-let lgAll=false;
+function lgNorm(c){ return c==='food'?'place':(c||'other'); }
+function lgCatLabel(id){ const c=LOGCATS.find(x=>x[0]===lgNorm(id)); return c?c[1]:'✨'; }
+let lgAll=true;
 function lgToggleAll(){ lgAll=!lgAll; renderLog(); }
 function drawLogListAll(){
   const list=document.getElementById('logList'); list.innerHTML='';
@@ -2296,7 +2297,7 @@ function drawLogListAll(){
   let count=0;
   LOGCATS.forEach(pair=>{
     if(lgFilter!=='all' && lgFilter!==pair[0]) return;
-    const items=all.filter(it=>(it.c||'other')===pair[0]).sort((a,b)=>(b.d||'').localeCompare(a.d||''));
+    const items=all.filter(it=>lgNorm(it.c)===pair[0]).sort((a,b)=>(b.d||'').localeCompare(a.d||''));
     if(!items.length) return;
     const h=document.createElement('div');
     h.innerHTML=pair[1]+'<span style="opacity:.85; font-weight:600; font-size:11px; margin-left:8px">'+items.length+'件</span>';
@@ -2316,7 +2317,7 @@ function drawLogListAll(){
 async function renderLog(){
   if(!lgCur) lgCur=todayKey().slice(0,7);
   const ab=document.getElementById('logAllBtn');
-  if(ab){ ab.style.background=lgAll?'var(--gold)':''; ab.style.borderColor=lgAll?'var(--accent)':''; }
+  if(ab){ ab.textContent=lgAll?'📅 月別':'📚 これまで'; ab.style.background=''; ab.style.borderColor=''; }
   if(lgAll){
     document.getElementById('logTitle').textContent='これまでの記録';
     drawLogChips(); drawLogForm();
@@ -2336,7 +2337,7 @@ async function renderLog(){
 }
 function drawLogChips(){
   const w=document.getElementById('logCatChips'); w.innerHTML='';
-  [['all','すべて']].concat(LOGCATS).forEach(pair=>{
+  LOGCATS.concat([['all','すべて']]).forEach(pair=>{
     const c=document.createElement('div'); c.className='chip mini'+(lgFilter===pair[0]?' on':'');
     c.textContent=pair[1]; c.onclick=()=>{ lgFilter=pair[0]; drawLogChips(); if(lgAll) drawLogListAll(); else drawLogList(); };
     w.appendChild(c); });
@@ -2346,8 +2347,8 @@ function drawLogList(){
   const mon=DJ.x[lgCur]||{};
   const CIDX={}; LOGCATS.forEach((pp,i)=>{ CIDX[pp[0]]=i; });
   const items=Object.keys(mon).map(id=>Object.assign({id:id},mon[id]))
-    .filter(it=>!it.del).filter(it=>lgFilter==='all'||it.c===lgFilter)
-    .sort((a,b)=>{ const ca=(a.c in CIDX)?CIDX[a.c]:9, cb=(b.c in CIDX)?CIDX[b.c]:9;
+    .filter(it=>!it.del).filter(it=>lgFilter==='all'||lgNorm(it.c)===lgFilter)
+    .sort((a,b)=>{ const ca=(lgNorm(a.c) in CIDX)?CIDX[lgNorm(a.c)]:9, cb=(lgNorm(b.c) in CIDX)?CIDX[lgNorm(b.c)]:9;
       if(ca!==cb) return ca-cb; return (b.d||'').localeCompare(a.d||''); });
   if(!items.length){ list.innerHTML='<div class="small" style="padding:8px 2px">この月の記録はまだありません</div>'; return; }
   items.forEach(it=>{
@@ -2413,7 +2414,7 @@ function resetLogForm(){ lgEdit=null; lgPhoto=null; lgRating=0; lgCat='other';
   drawLogForm(); }
 async function editLogItem(id){
   const it=(DJ.x[lgCur]||{})[id]; if(!it) return;
-  lgEdit=id; lgRating=it.r||0; lgCat=it.c||'other'; lgPhoto=null;
+  lgEdit=id; lgRating=it.r||0; lgCat=lgNorm(it.c); lgPhoto=null;
   document.getElementById('logName').value=it.n||'';
   document.getElementById('logAuthor').value=it.a||'';
   const lme=document.getElementById('logMemo'); lme.value=it.m||''; lme.style.height=''; autoGrow(lme);
