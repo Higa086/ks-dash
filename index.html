@@ -1455,6 +1455,32 @@ function mangaMsOf(k){ const rec=DB.days[k]; if(!rec) return 0;
   const cc=catCalc(rec,k); let s=0;
   MANGA_CATS.forEach(id=>{ s+=cc.perCat[id]||0; }); return s; }
 function catMove(n){ if((window._catView||'day')==='all') return; keepScroll(()=>{ window._catOff=Math.max(0,(window._catOff||0)-n); window._catPick=null; renderStats(); }); }
+function wnCell(k,rec){
+  const v=(rec&&rec.wn)||'';
+  return '<td class="wn" data-k="'+k+'" style="cursor:text; color:'+(v?'var(--ink)':'var(--sub)')+'; font-size:11.5px; word-break:break-word">'+
+    (v? dEsc(v) : '＋')+'</td>';
+}
+function wnEdit(td){
+  if(td.querySelector('input')) return;
+  const k=td.dataset.k;
+  const cur=((DB.days[k]||{}).wn)||'';
+  td.innerHTML='';
+  const inp=document.createElement('input');
+  inp.type='text'; inp.value=cur; inp.placeholder='例: 通院で中断';
+  inp.style.cssText='width:100%; margin:0; padding:4px 6px; font-size:11.5px;';
+  td.appendChild(inp);
+  inp.focus();
+  let done=false;
+  const fin=()=>{
+    if(done) return; done=true;
+    const v=inp.value.trim();
+    if(v!==cur){ const r=day(k); if(v) r.wn=v; else delete r.wn; touch(r); save(); }
+    keepScroll(()=>renderStats());
+  };
+  inp.onblur=fin;
+  inp.onkeydown=(e)=>{ if(e.key==='Enter'){ e.preventDefault(); inp.blur(); }
+    if(e.key==='Escape'){ done=true; keepScroll(()=>renderStats()); } };
+}
 function wlMove(n){ keepScroll(()=>{ window._wlOff=Math.max(0,(window._wlOff||0)-n); renderStats(); }); }
 async function measureFb(){
   const el=document.getElementById('fbUsage'), bar=document.getElementById('fbUsageBar');
@@ -1617,12 +1643,14 @@ function renderStats(){
   // work log (14 days, navigable, zero days shown, weekend/holiday colored)
   const lg=document.getElementById('workLog');
   if(lg){
+    if(!lg.dataset.wnBound){ lg.dataset.wnBound='1';
+      lg.addEventListener('click', e=>{ const td=e.target.closest && e.target.closest('td.wn'); if(td) wnEdit(td); }); }
     const off=window._wlOff||0;
     const end=new Date(); end.setDate(end.getDate()-14*off);
     const start=new Date(end); start.setDate(end.getDate()-13);
     const rl=document.getElementById('wlRangeLbl');
     if(rl) rl.textContent=(start.getMonth()+1)+'/'+start.getDate()+'〜'+(end.getMonth()+1)+'/'+end.getDate();
-    lg.innerHTML='<tr><th>日付</th><th>開始</th><th>終了</th><th>休憩</th><th>実働</th></tr>';
+    lg.innerHTML='<tr><th>日付</th><th>開始</th><th>終了</th><th>休憩</th><th>実働</th><th style="min-width:80px">備考</th></tr>';
     for(let i=0;i<=13;i++){
       const dt=new Date(end); dt.setDate(end.getDate()-i); const k=todayKey(dt);
       const rec=DB.days[k];
@@ -1631,20 +1659,20 @@ function renderStats(){
       const evs=(rec&&rec.work&&rec.work.ev)||[];
       const tr=document.createElement('tr');
       if(!evs.length && !(rec&&rec.workAdj)){
-        tr.innerHTML=dcell+'<td>—</td><td>—</td><td>0</td><td>0</td>';
+        tr.innerHTML=dcell+'<td>—</td><td>—</td><td>0</td><td>0</td>'+wnCell(k,rec);
         tr.style.color='var(--sub)';
         lg.appendChild(tr); continue;
       }
       const wc=dayWC(rec,k);
       if(!evs.length){
-        tr.innerHTML=dcell+'<td>—</td><td>手動</td><td>'+(fmtH(wc.breakMs)||'0')+'</td><td><b>'+(fmtH(wc.workMs)||'0')+'</b></td>';
+        tr.innerHTML=dcell+'<td>—</td><td>手動</td><td>'+(fmtH(wc.breakMs)||'0')+'</td><td><b>'+(fmtH(wc.workMs)||'0')+'</b></td>'+wnCell(k,rec);
         lg.appendChild(tr); continue;
       }
       const first=evs[0][1];
       let endTs=null; evs.forEach(ev=>{ if(ev[0]==='end') endTs=ev[1]; });
       const isTodayRow=(k===tk);
       const endTxt=(isTodayRow&&wc.st==='working')?'🟢勤務中':(isTodayRow&&wc.st==='break')?'☕休憩中': endTs?fmtTime(endTs):'自動終了';
-      tr.innerHTML=dcell+'<td>'+fmtTime(first)+'</td><td>'+endTxt+'</td><td>'+(fmtH(wc.breakMs)||'0')+'</td><td><b>'+(fmtH(wc.workMs)||'0')+'</b></td>';
+      tr.innerHTML=dcell+'<td>'+fmtTime(first)+'</td><td>'+endTxt+'</td><td>'+(fmtH(wc.breakMs)||'0')+'</td><td><b>'+(fmtH(wc.workMs)||'0')+'</b></td>'+wnCell(k,rec);
       lg.appendChild(tr);
     }
   }
