@@ -527,6 +527,12 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
   </div>
   <div class="card" id="diaryEd" style="display:none">
     <h2 id="diaryEdTitle">—</h2>
+    <div style="display:flex; gap:6px; margin-bottom:4px">
+      <button class="navbtn" style="font-weight:800; padding:0 12px" onclick="wrapSel('diaryText')">B</button>
+      <button class="navbtn" style="padding:0 10px; font-size:14px" onclick="lineHead('diaryText','# ')">大</button>
+      <button class="navbtn" style="padding:0 10px; font-size:12.5px" onclick="lineHead('diaryText','## ')">中</button>
+      <span class="small" style="align-self:center">選択して B で**太字**、行頭ボタンで見出し</span>
+    </div>
     <textarea id="diaryText" rows="8" placeholder="日記（1行でもOK）" style="resize:none; overflow:hidden" oninput="diaryLite(); autoGrow(this)" onchange="saveDiaryText()"></textarea>
     <div id="diaryPhotos" class="phgrid"></div>
     <button class="btn ghost" onclick="document.getElementById('diaryPhotoFile').click()">📷 写真を追加</button>
@@ -552,7 +558,11 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <input type="text" id="logName" placeholder="タイトル（作品名・店名・場所）">
     <input type="text" id="logAuthor" placeholder="作者・監督・スタジオなど（任意）" style="margin-top:6px">
     <div id="logStars" style="font-size:22px; letter-spacing:5px; margin:6px 0"></div>
-    <textarea id="logMemo" rows="2" placeholder="メモ（任意・改行OK）" style="resize:none; overflow:hidden; margin-top:6px" oninput="autoGrow(this)"></textarea>
+    <div style="display:flex; gap:6px; margin-top:6px">
+      <button class="navbtn" style="font-weight:800; padding:0 12px; height:28px" onclick="wrapSel('logMemo')">B</button>
+      <button class="navbtn" style="padding:0 10px; height:28px; font-size:13px" onclick="lineHead('logMemo','# ')">大</button>
+    </div>
+    <textarea id="logMemo" rows="2" placeholder="メモ（任意・改行OK）" style="resize:none; overflow:hidden; margin-top:4px" oninput="autoGrow(this)"></textarea>
     <input type="date" id="logDate" style="margin-top:6px">
     <div id="logPhotoWrap" class="phgrid"></div>
     <div style="margin-top:6px">
@@ -1127,7 +1137,9 @@ function renderCal(){
   if(calY===undefined) initCal();
   document.getElementById('calTitle').textContent=calY+'年 '+(calM+1)+'月';
   const grid=document.getElementById('calGrid'); grid.innerHTML='';
-  ['月','火','水','木','金','土','日'].forEach(w=>{ const e=document.createElement('div'); e.className='wd'; e.textContent=w; grid.appendChild(e); });
+  ['月','火','水','木','金','土','日'].forEach(w=>{ const e=document.createElement('div'); e.className='wd'; e.textContent=w;
+    if(w==='土') e.style.color='#3b6fb5'; if(w==='日') e.style.color='#cf5045';
+    grid.appendChild(e); });
   const first=new Date(calY,calM,1); const blanks=(first.getDay()+6)%7;
   const daysIn=new Date(calY,calM+1,0).getDate();
   const tk=todayKey(); let workD=0, totP=0, totW=0;
@@ -1158,8 +1170,9 @@ function renderCal(){
     const subs=[];
     if(rec&&rec.pages) subs.push(fmtP(rec.pages)+'P');
     if(wms) subs.push(fmtH(wms));
-    e.innerHTML='<div>'+dd+'</div>'+(subs.length?'<div class="pg">'+subs.join('·')+'</div>':'')+
-      (rec&&rec.memo?'<div class="mk">✎</div>':'')+rbar;
+    { const cD=dayColor(new Date(calY,calM,dd), k);
+    e.innerHTML='<div'+(cD?' style="color:'+cD+'; font-weight:700"':'')+'>'+dd+'</div>'+(subs.length?'<div class="pg">'+subs.join('·')+'</div>':'')+
+      (rec&&rec.memo?'<div class="mk">✎</div>':'')+rbar; }
     e.onclick=()=>{ selKey=k; renderCal(); renderEditor(k); };
     grid.appendChild(e);
   }
@@ -1179,7 +1192,7 @@ function renderEditor(k){
   const dbx=document.getElementById('edDiaryBox');
   if(dbx){ dbx.style.display='none';
     const ymk=k.slice(0,7);
-    const showDx=()=>{ const e2=(DJ.d[ymk]||{})[k]; if(e2&&e2.t){ dbx.textContent=e2.t; dbx.style.display='block'; } };
+    const showDx=()=>{ const e2=(DJ.d[ymk]||{})[k]; if(e2&&e2.t){ dbx.innerHTML=fmtRich(e2.t); dbx.style.display='block'; } };
     showDx();
     if(!DJ.d[ymk]) dGET('d/'+ymk).then(rm2=>{ if(rm2){ diMergeMonth(DJ.d,ymk,rm2); dsave(); showDx(); } });
   }
@@ -1959,6 +1972,41 @@ async function dPUT(p,val){ const b=diaryBase(); if(!b) return false;
 async function dDEL(p){ const b=diaryBase(); if(!b) return false;
   try{ const r=await fetch(b+'/'+p+'.json',{method:'DELETE'}); return r.ok; }catch(e){ return false; } }
 function dEsc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+function stripRich(t){ return String(t||'').replace(/\*\*/g,'').replace(/^#+\s?/gm,''); }
+function fmtRich(t){
+  let s=dEsc(t||'');
+  s=s.replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>');
+  s=s.split('\n').map(l=>{
+    if(l.startsWith('## ')) return '<span style="font-size:15.5px; font-weight:700">'+l.slice(3)+'</span>';
+    if(l.startsWith('# ')) return '<span style="font-size:17.5px; font-weight:700">'+l.slice(2)+'</span>';
+    return l;
+  }).join('\n');
+  return s;
+}
+function wrapSel(taId){
+  const ta=document.getElementById(taId); if(!ta) return;
+  const s=ta.selectionStart, e=ta.selectionEnd, v=ta.value;
+  if(v.slice(s-2,s)==='**'&&v.slice(e,e+2)==='**'){
+    ta.value=v.slice(0,s-2)+v.slice(s,e)+v.slice(e+2);
+    ta.selectionStart=s-2; ta.selectionEnd=e-2;
+  } else {
+    ta.value=v.slice(0,s)+'**'+v.slice(s,e)+'**'+v.slice(e);
+    ta.selectionStart=s+2; ta.selectionEnd=e+2;
+  }
+  ta.focus(); ta.dispatchEvent(new Event('input')); ta.dispatchEvent(new Event('change'));
+}
+function lineHead(taId, mark){
+  const ta=document.getElementById(taId); if(!ta) return;
+  const s=ta.selectionStart, v=ta.value;
+  const ls=v.lastIndexOf('\n', s-1)+1;
+  const cur=v.slice(ls, ls+4);
+  let nv, delta;
+  if(cur.startsWith(mark)){ nv=v.slice(0,ls)+v.slice(ls+mark.length); delta=-mark.length; }
+  else { nv=v.slice(0,ls)+mark+v.slice(ls); delta=mark.length; }
+  ta.value=nv;
+  ta.selectionStart=ta.selectionEnd=Math.max(ls, s+delta);
+  ta.focus(); ta.dispatchEvent(new Event('input')); ta.dispatchEvent(new Event('change'));
+}
 function diMergeMonth(store,ym,remote){ const loc=store[ym]=store[ym]||{}; let ch=false;
   Object.keys(remote||{}).forEach(k=>{ const l=loc[k], r=remote[k];
     if(!l || (r.u||0)>(l.u||0)){ loc[k]=r; ch=true; } });
@@ -2010,7 +2058,7 @@ function drawDiaryList(){
     const cJ=dayColor(dt,k);
     const row=document.createElement('div'); row.className='dirow'+(e&&e.t?'':' empty');
     row.innerHTML='<span class="dd"'+(cJ?' style="color:'+cJ+'"':'')+'>'+m+'/'+d+' '+'日月火水木金土'[dt.getDay()]+'</span>'+
-      '<span class="pv">'+(e&&e.t? dEsc(e.t.split('\n')[0]).slice(0,48):'—')+'</span>'+
+      '<span class="pv">'+(e&&e.t? dEsc(stripRich(e.t).split('\n').find(x=>x.trim())||'').slice(0,48):'—')+'</span>'+
       (e&&e.phc? '<span class="small">📷'+e.phc+'</span>':'');
     row.onclick=()=>openDiary(k);
     list.appendChild(row);
@@ -2198,7 +2246,7 @@ function drawTimeline(){
     const w=document.createElement('div');
     w.style.cssText='padding:10px 2px; border-bottom:1px solid var(--line); cursor:pointer;';
     w.innerHTML='<div style="font-weight:700; font-size:12.5px;'+(c?' color:'+c:'')+'">'+dk.slice(0,4)+'/'+parseInt(dk.slice(5,7))+'/'+parseInt(dk.slice(8))+'（'+'日月火水木金土'[dt.getDay()]+'）'+(e.phc?' <span class="small">📷'+e.phc+'</span>':'')+'</div>'+
-      '<div class="small" style="margin-top:2px; white-space:pre-wrap; display:-webkit-box; -webkit-line-clamp:10; -webkit-box-orient:vertical; overflow:hidden;">'+dEsc(e.t||'')+'</div>';
+      '<div class="small" style="margin-top:2px; white-space:pre-wrap; display:-webkit-box; -webkit-line-clamp:10; -webkit-box-orient:vertical; overflow:hidden;">'+fmtRich(e.t||'')+'</div>';
     w.onclick=()=>{ diCur=dk.slice(0,7); renderDiary(); openDiary(dk); };
     el.appendChild(w);
   });
@@ -2303,14 +2351,14 @@ function drawLogListAll(){
       all.push(Object.assign({id:id,ym:ym},it)); }); });
   let count=0;
   LOGCATS.forEach(pair=>{
-    if(lgFilter!=='all' && lgFilter!==pair[0]) return;
-    const itemsAll=all.filter(it=>lgNorm(it.c)===pair[0]).sort((a,b)=>(b.d||'').localeCompare(a.d||''));
+    if(lgFilter!=='all' && lgFilter!=='bm' && lgFilter!==pair[0]) return;
+    const itemsAll=all.filter(it=>lgNorm(it.c)===pair[0]).filter(it=>lgFilter!=='bm'||!!it.b).sort((a,b)=>(b.d||'').localeCompare(a.d||''));
     if(!itemsAll.length) return;
     const yearHead=todayKey().slice(0,4)+'-01-01';
     const oldOpen=(window._lgOldOpen=window._lgOldOpen||{});
     const curItems=itemsAll.filter(it=>(it.d||'')>=yearHead);
     const oldItems=itemsAll.filter(it=>(it.d||'')<yearHead);
-    const items=oldOpen[pair[0]]? itemsAll : curItems;
+    const items=curItems;
     const h=document.createElement('div');
     h.innerHTML=pair[1]+'<span style="opacity:.85; font-weight:600; font-size:11px; margin-left:8px">'+itemsAll.length+'件（今年'+curItems.length+'）</span>';
     h.style.cssText='margin:14px 0 4px; background:'+(pair[2]||'#8a867c')+'; color:#fff; border-radius:8px; padding:6px 12px; font-weight:700; font-size:13.5px;';
@@ -2319,18 +2367,27 @@ function drawLogListAll(){
       const row=document.createElement('div'); row.className='dirow';
       const dd=(it.d||'').replace(/^(\d{4})-0?(\d+)-0?(\d+)$/, '$1/$2/$3');
       row.innerHTML='<span class="dd" style="min-width:76px">'+dd+'</span>'+
-        '<span class="pv"><b style="color:var(--fg)">'+dEsc(it.n)+'</b>'+(it.a?'<span class="small"> ／'+dEsc(it.a)+'</span>':'')+(it.m?' — '+dEsc(it.m.split('\n')[0]):'')+'</span>'+
-        '<span>'+(it.r?'<span style="color:var(--accent)">'+'★'.repeat(it.r)+'</span>':'<span class="small">—</span>')+(it.ph?' 📷':'')+'</span>';
+        '<span class="pv"><b style="color:var(--fg)">'+dEsc(it.n)+'</b>'+(it.a?'<span class="small"> ／'+dEsc(it.a)+'</span>':'')+(it.m?' — '+dEsc(stripRich(it.m).split('\n')[0]):'')+'</span>'+
+        '<span>'+(it.r?'<span style="color:var(--accent)">'+'★'.repeat(it.r)+'</span>':'<span class="small">—</span>')+(it.b?' 🔖':'')+(it.ph?' 📷':'')+'</span>';
       row.onclick=()=>{ showLogDetail(it); };
       list.appendChild(row); });
     if(oldItems.length){
       const tg=document.createElement('div');
       tg.className='small';
-      tg.style.cssText='padding:8px 2px; cursor:pointer; user-select:none;';
+      tg.style.cssText='padding:8px 2px; cursor:pointer; user-select:none; border-bottom:1px solid var(--line);';
       tg.textContent=(oldOpen[pair[0]]?'▾ ':'▸ ')+'去年以前 '+oldItems.length+'件'+(oldOpen[pair[0]]?'':'（タップで表示）');
       tg.onclick=()=>{ keepScroll(()=>{ oldOpen[pair[0]]=!oldOpen[pair[0]]; drawLogListAll(); }); };
       list.appendChild(tg);
-      if(!oldOpen[pair[0]]) count+=0;
+      if(oldOpen[pair[0]]){
+        oldItems.forEach(it=>{ count++;
+          const row=document.createElement('div'); row.className='dirow';
+          const dd=(it.d||'').replace(/^(\d{4})-0?(\d+)-0?(\d+)$/, '$1/$2/$3');
+          row.innerHTML='<span class="dd" style="min-width:76px">'+dd+'</span>'+
+            '<span class="pv"><b style="color:var(--fg)">'+dEsc(it.n)+'</b>'+(it.a?'<span class="small"> ／'+dEsc(it.a)+'</span>':'')+(it.m?' — '+dEsc(stripRich(it.m).split('\n')[0]):'')+'</span>'+
+            '<span>'+(it.r?'<span style="color:var(--accent)">'+'★'.repeat(it.r)+'</span>':'<span class="small">—</span>')+(it.b?' 🔖':'')+(it.ph?' 📷':'')+'</span>';
+          row.onclick=()=>{ showLogDetail(it); };
+          list.appendChild(row); });
+      }
     }
   });
   if(!count) list.innerHTML='<div class="small" style="padding:8px 2px">記録がありません</div>';
@@ -2358,7 +2415,7 @@ async function renderLog(){
 }
 function drawLogChips(){
   const w=document.getElementById('logCatChips'); w.innerHTML='';
-  LOGCATS.concat([['all','すべて']]).forEach(pair=>{
+  LOGCATS.concat([['all','すべて'],['bm','🔖']]).forEach(pair=>{
     const c=document.createElement('div'); c.className='chip mini'+(lgFilter===pair[0]?' on':'');
     c.textContent=pair[1]; c.onclick=()=>{ keepScroll(()=>{ lgFilter=pair[0]; drawLogChips(); if(lgAll) drawLogListAll(); else drawLogList(); }); };
     w.appendChild(c); });
@@ -2368,16 +2425,16 @@ function drawLogList(){
   const mon=DJ.x[lgCur]||{};
   const CIDX={}; LOGCATS.forEach((pp,i)=>{ CIDX[pp[0]]=i; });
   const items=Object.keys(mon).map(id=>Object.assign({id:id},mon[id]))
-    .filter(it=>!it.del).filter(it=>lgFilter==='all'||lgNorm(it.c)===lgFilter)
+    .filter(it=>!it.del).filter(it=>lgFilter==='all'||(lgFilter==='bm'? !!it.b : lgNorm(it.c)===lgFilter))
     .sort((a,b)=>{ const ca=(lgNorm(a.c) in CIDX)?CIDX[lgNorm(a.c)]:9, cb=(lgNorm(b.c) in CIDX)?CIDX[lgNorm(b.c)]:9;
       if(ca!==cb) return ca-cb; return (b.d||'').localeCompare(a.d||''); });
   if(!items.length){ list.innerHTML='<div class="small" style="padding:8px 2px">この月の記録はまだありません</div>'; return; }
   items.forEach(it=>{
     const row=document.createElement('div'); row.className='dirow';
     row.innerHTML='<span class="dd">'+(it.d||'').slice(5).replace('-','/')+'</span>'+
-      '<span class="pv"><b style="color:var(--fg)">'+dEsc(it.n)+'</b>'+(it.a?'<span class="small"> ／'+dEsc(it.a)+'</span>':'')+(it.m?' — '+dEsc(it.m.split('\n')[0]):'')+'</span>'+
+      '<span class="pv"><b style="color:var(--fg)">'+dEsc(it.n)+'</b>'+(it.a?'<span class="small"> ／'+dEsc(it.a)+'</span>':'')+(it.m?' — '+dEsc(stripRich(it.m).split('\n')[0]):'')+'</span>'+
       '<span class="small">'+lgCatLabel(it.c).split(' ')[0]+
-      (it.r?'<span style="color:var(--accent)"> '+'★'.repeat(it.r)+'</span>':'')+(it.ph?' 📷':'')+'</span>';
+      (it.r?'<span style="color:var(--accent)"> '+'★'.repeat(it.r)+'</span>':'')+(it.b?' 🔖':'')+(it.ph?' 📷':'')+'</span>';
     row.onclick=()=>showLogDetail(Object.assign({ym:lgCur},it));
     list.appendChild(row); });
 }
@@ -2392,17 +2449,26 @@ function showLogDetail(it){
     '<h2 style="margin:6px 0 4px">'+dEsc(it.n||'')+'</h2>'+
     (it.a? '<div class="small">'+dEsc(it.a)+'</div>':'')+
     (it.r? '<div style="color:var(--accent); font-size:17px; letter-spacing:3px">'+'★'.repeat(it.r)+'</div>':'')+
-    (it.m? '<div style="margin-top:10px; white-space:pre-wrap; font-size:13.5px; line-height:1.7">'+dEsc(it.m)+'</div>'
+    (it.m? '<div style="margin-top:10px; white-space:pre-wrap; font-size:13.5px; line-height:1.7">'+fmtRich(it.m)+'</div>'
          : '<div class="small" style="margin-top:10px">メモはありません</div>')+
     '<div id="lgDetailPh" class="phgrid"></div>';
   const bar=document.createElement('div');
   bar.style.cssText='display:flex; gap:8px; margin-top:14px;';
+  const bb=document.createElement('button'); bb.className='btn ghost';
+  bb.textContent=it.b?'🔖 解除':'🔖';
+  bb.onclick=()=>{ const ym2=it.ym||lgCur;
+    const rec2=(DJ.x[ym2]||{})[it.id]; if(!rec2) return;
+    rec2.b=rec2.b?0:1; rec2.u=Date.now(); it.b=rec2.b;
+    DJ.dirty['x/'+ym2+'/'+it.id]=1; dsave(); flushDiaryDirty();
+    bb.textContent=it.b?'🔖 解除':'🔖';
+    keepScroll(()=>{ if(lgAll) drawLogListAll(); else drawLogList(); });
+  };
   const be=document.createElement('button'); be.className='btn'; be.textContent='編集';
   be.onclick=()=>{ document.body.removeChild(ov); lgAll=false; lgCur=it.ym||lgCur;
     renderLog().then(()=>editLogItem(it.id)); };
   const bc=document.createElement('button'); bc.className='btn ghost'; bc.textContent='閉じる';
   bc.onclick=()=>document.body.removeChild(ov);
-  bar.appendChild(be); bar.appendChild(bc); card.appendChild(bar);
+  bar.appendChild(bb); bar.appendChild(be); bar.appendChild(bc); card.appendChild(bar);
   ov.appendChild(card);
   ov.onclick=()=>document.body.removeChild(ov);
   document.body.appendChild(ov);
