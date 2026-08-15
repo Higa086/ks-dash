@@ -227,13 +227,13 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <div class="taicho" id="dayTaicho"></div>
     <div class="small" id="dayTaichoNote" style="margin-top:6px"></div>
   </div>
-  <div class="card">
-    <div class="small" style="cursor:pointer; user-select:none; font-weight:700" onclick="h20Tgl()" id="h20Head">▸ 20の習慣（コロチキ西野）</div>
-    <div id="h20List" style="display:none; margin-top:6px"></div>
-  </div>
   <div class="card" id="tlCard">
     <h2>1日の型 <span class="small" id="tlNote"></span></h2>
     <div class="tl" id="timeline"></div>
+  </div>
+  <div class="card">
+    <div class="small" style="font-weight:700">20の習慣</div>
+    <div id="h20List" style="margin-top:6px"></div>
   </div>
 </div>
 
@@ -1953,7 +1953,7 @@ function diaryBase(){ const c=syncCfg(); if(!c) return null;
 const PH={};
 let diCur=null, lgCur=null, diOpen=null, diaryTmr=null;
 let lgEdit=null, lgPhoto=null, lgRating=0, lgCat='book', lgFilter='book';
-const LOGCATS=[['book','📖 本','#3d7a4f'],['movie','🎬 映画・ドラマ','#6b5bd6'],['anime','📺 アニメ','#e0763f'],['manga','📕 漫画','#c94f6d'],['place','🗺️ 場所・おでかけ・ごはん','#33608d'],['other','✨ その他','#8a867c']];
+const LOGCATS=[['book','📖 本','#3d7a4f'],['movie','🎬 映画・ドラマ','#6b5bd6'],['anime','📺 アニメ','#e0763f'],['manga','📕 漫画','#c94f6d'],['game','🎮 ゲーム','#2f8f8f'],['place','🗺️ 場所・おでかけ・ごはん','#33608d'],['other','✨ その他','#8a867c']];
 
 async function dGET(p){ const b=diaryBase(); if(!b) return null;
   try{ const r=await fetch(b+'/'+p+'.json',{cache:'no-store'}); return r.ok? await r.json(): null; }catch(e){ return null; } }
@@ -2379,6 +2379,19 @@ async function importPhotosZip(inp){
 
 // ---- ログ ----
 function lgNorm(c){ return c==='food'?'place':(c||'other'); }
+function lgRowHTML(it, withCat){
+  const dd=(it.d||'').replace(/^(\d{4})-0?(\d+)-0?(\d+)$/, '$1/$2/$3');
+  return '<span class="dd" style="min-width:76px">'+dd+'</span>'+
+    '<span class="pv">'+(withCat? lgCatLabel(it.c).split(' ')[0]+' ':'')+(it.ph?'📷 ':'')+
+      '<b style="color:var(--fg)">'+dEsc(it.n)+'</b>'+
+      (it.a?'<span class="small"> ／'+dEsc(it.a)+'</span>':'')+
+      (it.m?' — '+dEsc(stripRich(it.m).split('\n')[0]):'')+'</span>'+
+    '<span style="flex:none; white-space:nowrap">'+
+      '<span style="display:inline-block; width:72px; text-align:right; color:var(--accent); font-size:12px">'+
+        (it.r?'★'.repeat(it.r):'<span class="small" style="color:var(--sub)">—</span>')+'</span>'+
+      '<span style="display:inline-block; width:20px; text-align:right">'+(it.b?'📌':'')+'</span>'+
+    '</span>';
+}
 function lgCatLabel(id){ const c=LOGCATS.find(x=>x[0]===lgNorm(id)); return c?c[1]:'✨'; }
 let lgAll=true;
 function keepScroll(fn){ const sy=window.scrollY; fn();
@@ -2394,7 +2407,8 @@ function drawLogListAll(){
   let count=0;
   LOGCATS.forEach(pair=>{
     if(lgFilter!=='all' && lgFilter!=='bm' && lgFilter!==pair[0]) return;
-    const itemsAll=all.filter(it=>lgNorm(it.c)===pair[0]).filter(it=>lgFilter!=='bm'||!!it.b).sort((a,b)=>(b.d||'').localeCompare(a.d||''));
+    const itemsAll=all.filter(it=>lgNorm(it.c)===pair[0]).filter(it=>lgFilter!=='bm'||!!it.b)
+      .sort((a,b)=>{ const pa=a.b?1:0, pb=b.b?1:0; if(pa!==pb) return pb-pa; return (b.d||'').localeCompare(a.d||''); });
     if(!itemsAll.length) return;
     const yearHead=todayKey().slice(0,4)+'-01-01';
     const oldOpen=(window._lgOldOpen=window._lgOldOpen||{});
@@ -2407,10 +2421,7 @@ function drawLogListAll(){
     list.appendChild(h);
     items.forEach(it=>{ count++;
       const row=document.createElement('div'); row.className='dirow';
-      const dd=(it.d||'').replace(/^(\d{4})-0?(\d+)-0?(\d+)$/, '$1/$2/$3');
-      row.innerHTML='<span class="dd" style="min-width:76px">'+dd+'</span>'+
-        '<span class="pv"><b style="color:var(--fg)">'+dEsc(it.n)+'</b>'+(it.a?'<span class="small"> ／'+dEsc(it.a)+'</span>':'')+(it.m?' — '+dEsc(stripRich(it.m).split('\n')[0]):'')+'</span>'+
-        '<span>'+(it.r?'<span style="color:var(--accent)">'+'★'.repeat(it.r)+'</span>':'<span class="small">—</span>')+(it.b?' 📌':'')+(it.ph?' 📷':'')+'</span>';
+      row.innerHTML=lgRowHTML(it);
       row.onclick=()=>{ showLogDetail(it); };
       list.appendChild(row); });
     if(oldItems.length){
@@ -2423,10 +2434,7 @@ function drawLogListAll(){
       if(oldOpen[pair[0]]){
         oldItems.forEach(it=>{ count++;
           const row=document.createElement('div'); row.className='dirow';
-          const dd=(it.d||'').replace(/^(\d{4})-0?(\d+)-0?(\d+)$/, '$1/$2/$3');
-          row.innerHTML='<span class="dd" style="min-width:76px">'+dd+'</span>'+
-            '<span class="pv"><b style="color:var(--fg)">'+dEsc(it.n)+'</b>'+(it.a?'<span class="small"> ／'+dEsc(it.a)+'</span>':'')+(it.m?' — '+dEsc(stripRich(it.m).split('\n')[0]):'')+'</span>'+
-            '<span>'+(it.r?'<span style="color:var(--accent)">'+'★'.repeat(it.r)+'</span>':'<span class="small">—</span>')+(it.b?' 📌':'')+(it.ph?' 📷':'')+'</span>';
+          row.innerHTML=lgRowHTML(it);
           row.onclick=()=>{ showLogDetail(it); };
           list.appendChild(row); });
       }
@@ -2468,15 +2476,13 @@ function drawLogList(){
   const CIDX={}; LOGCATS.forEach((pp,i)=>{ CIDX[pp[0]]=i; });
   const items=Object.keys(mon).map(id=>Object.assign({id:id},mon[id]))
     .filter(it=>!it.del).filter(it=>lgFilter==='all'||(lgFilter==='bm'? !!it.b : lgNorm(it.c)===lgFilter))
-    .sort((a,b)=>{ const ca=(lgNorm(a.c) in CIDX)?CIDX[lgNorm(a.c)]:9, cb=(lgNorm(b.c) in CIDX)?CIDX[lgNorm(b.c)]:9;
+    .sort((a,b)=>{ const pa=a.b?1:0, pb=b.b?1:0; if(pa!==pb) return pb-pa;
+      const ca=(lgNorm(a.c) in CIDX)?CIDX[lgNorm(a.c)]:9, cb=(lgNorm(b.c) in CIDX)?CIDX[lgNorm(b.c)]:9;
       if(ca!==cb) return ca-cb; return (b.d||'').localeCompare(a.d||''); });
   if(!items.length){ list.innerHTML='<div class="small" style="padding:8px 2px">この月の記録はまだありません</div>'; return; }
   items.forEach(it=>{
     const row=document.createElement('div'); row.className='dirow';
-    row.innerHTML='<span class="dd">'+(it.d||'').slice(5).replace('-','/')+'</span>'+
-      '<span class="pv"><b style="color:var(--fg)">'+dEsc(it.n)+'</b>'+(it.a?'<span class="small"> ／'+dEsc(it.a)+'</span>':'')+(it.m?' — '+dEsc(stripRich(it.m).split('\n')[0]):'')+'</span>'+
-      '<span class="small">'+lgCatLabel(it.c).split(' ')[0]+
-      (it.r?'<span style="color:var(--accent)"> '+'★'.repeat(it.r)+'</span>':'')+(it.b?' 📌':'')+(it.ph?' 📷':'')+'</span>';
+    row.innerHTML=lgRowHTML(it, true);
     row.onclick=()=>showLogDetail(Object.assign({ym:lgCur},it));
     list.appendChild(row); });
 }
@@ -2595,17 +2601,11 @@ function lgMove(n){ lgAll=false; const [y,m]=lgCur.split('-').map(Number);
 
 // ---- 判定日カウントダウン ----
 const HABITS20=['太陽の光を浴びる','ベッドメイキング','肩甲骨剥がし・ほぐし','朝のコーヒー','朝のウォーキング','神社参拝','ゴミ拾い','コールドシャワー','朝キムチ・サバ','朝食にメカブ','間食にフルーツ','SNS投稿','いい匂いのものをつける','移動中に何するか決める','食事会・飲み会は「ありがとう」と思えるやつだけ行く','足トレ（下半身）','クレアチン','湯船に浸かる','風呂上がり（寝る前1h）はスマホをいじらない','寝る前のルーティンを固める'];
-function h20Tgl(){ const f=localStorage.getItem('ks_h20')==='1'; localStorage.setItem('ks_h20', f?'0':'1'); renderH20(); }
 function renderH20(){
-  const h=document.getElementById('h20Head'), l=document.getElementById('h20List');
-  if(!h||!l) return;
-  const open=localStorage.getItem('ks_h20')==='1';
-  h.textContent=(open?'▾ ':'▸ ')+'20の習慣（コロチキ西野）';
-  l.style.display=open?'':'none';
-  if(open && !l.innerHTML){
-    l.innerHTML='<div style="font-size:11.5px; color:var(--sub); line-height:1.9; columns:2; column-gap:14px">'+
-      HABITS20.map((t,i)=>'<div style="break-inside:avoid">'+(i+1)+'. '+dEsc(t)+'</div>').join('')+'</div>';
-  }
+  const l=document.getElementById('h20List');
+  if(!l || l.innerHTML) return;
+  l.innerHTML='<div style="font-size:11.5px; color:var(--sub); line-height:1.9; columns:2; column-gap:14px">'+
+    HABITS20.map((t,i)=>'<div style="break-inside:avoid">'+(i+1)+'. '+dEsc(t)+'</div>').join('')+'</div>';
 }
 function renderJudge(){ const el=document.getElementById('judgeLine'); if(!el) return;
   const d=Math.ceil((new Date(2026,9,31)-logicalNow())/86400000);
