@@ -781,7 +781,17 @@ const ITEMS_DEF=[
  {id:'diary', label:'日記', hint:'座学枠（20:30-21:30）内で', short:'日記'},
 ];
 let ITEMS=ITEMS_DEF;
+const HINT_SEED={'日の光を浴びる':'起きたらまずカーテン。体内時計のスイッチ','ベッドメイキング':'1日で最初に完了する小さな勝ち','朝散歩':'アイデア出しを兼ねる。10〜20分でいい','瞑想':'5分でOK。反芻を止める練習'};
+function seedHints(){
+  if(!(DB.rt&&Array.isArray(DB.rt.v))) return;
+  let ch=false;
+  DB.rt.v.forEach(it=>{ if(!it.hint && HINT_SEED[it.label]){ it.hint=HINT_SEED[it.label]; ch=true; } });
+  if(ch){ DB.rt.u=Date.now();
+    if(DB.rt.hist&&DB.rt.hist.length){ DB.rt.hist[DB.rt.hist.length-1].v=JSON.parse(JSON.stringify(DB.rt.v)); }
+    persist(); schedulePush(); }
+}
 function loadItems(){ const r=DB.rt; ITEMS=(r&&Array.isArray(r.v)&&r.v.length)? r.v : ITEMS_DEF;
+  seedHints();
   if(r&&Array.isArray(r.v)&&r.v.length&&!(r.hist&&r.hist.length)){
     r.hist=[{from:todayKey(), v:JSON.parse(JSON.stringify(r.v))}]; persist(); schedulePush();
   }
@@ -2604,8 +2614,10 @@ const HABITS20=['太陽の光を浴びる','ベッドメイキング','肩甲骨
 function renderH20(){
   const l=document.getElementById('h20List');
   if(!l || l.innerHTML) return;
+  const H20BOLD=[1,2,5,9,10,11,12,13,14,15,16,18,19,20];
   l.innerHTML='<div style="font-size:11.5px; color:var(--sub); line-height:1.9; columns:2; column-gap:14px">'+
-    HABITS20.map((t,i)=>'<div style="break-inside:avoid">'+(i+1)+'. '+dEsc(t)+'</div>').join('')+'</div>';
+    HABITS20.map((t,i)=>{ const b=H20BOLD.indexOf(i+1)>=0;
+      return '<div style="break-inside:avoid'+(b?'; color:var(--ink); font-weight:700':'')+'">'+(i+1)+'. '+dEsc(t)+'</div>'; }).join('')+'</div>';
 }
 function renderJudge(){ const el=document.getElementById('judgeLine'); if(!el) return;
   const d=Math.ceil((new Date(2026,9,31)-logicalNow())/86400000);
