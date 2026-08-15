@@ -850,6 +850,7 @@ const TL_NORMAL=[
 ];
 const PRINCIPLES=[
  '完璧より完成。出してから直す。',
+ 'モチベーションは仕事に持ち込まない。成果に必要ならのめり込み、不要なら巡航モード。「気持ちが乗らないからスロー」はしない——成果ドリブン。',
  '座学は漫画の代わりにならない。',
  '「納得」の判定は外注する。自己評価は30点低く出る癖がある。',
  '取り返すのは週単位。夜更かしで取り返さない。',
@@ -1440,8 +1441,8 @@ const MANGA_CATS=['honpen','name','package','research','promo'];
 function mangaMsOf(k){ const rec=DB.days[k]; if(!rec) return 0;
   const cc=catCalc(rec,k); let s=0;
   MANGA_CATS.forEach(id=>{ s+=cc.perCat[id]||0; }); return s; }
-function catMove(n){ if((window._catView||'day')==='all') return; window._catOff=Math.max(0,(window._catOff||0)-n); window._catPick=null; renderStats(); }
-function wlMove(n){ window._wlOff=Math.max(0,(window._wlOff||0)-n); renderStats(); }
+function catMove(n){ if((window._catView||'day')==='all') return; keepScroll(()=>{ window._catOff=Math.max(0,(window._catOff||0)-n); window._catPick=null; renderStats(); }); }
+function wlMove(n){ keepScroll(()=>{ window._wlOff=Math.max(0,(window._wlOff||0)-n); renderStats(); }); }
 async function measureFb(){
   const el=document.getElementById('fbUsage'), bar=document.getElementById('fbUsageBar');
   if(!el) return;
@@ -1513,7 +1514,7 @@ function renderStats(){
       ppc.dataset.init='1';
       [['day','日別(3週間)'],['week','週別(8週)'],['month','月別(6ヶ月)']].forEach(pair=>{
         const el=document.createElement('div'); el.className='chip mini'; el.dataset.pid=pair[0]; el.textContent=pair[1];
-        el.onclick=()=>{ window._pgPeriod=pair[0]; renderStats(); };
+        el.onclick=()=>{ keepScroll(()=>{ window._pgPeriod=pair[0]; renderStats(); }); };
         ppc.appendChild(el);
       });
     }
@@ -1555,7 +1556,7 @@ function renderStats(){
       wpc.dataset.init='1';
       [['day','日別(3週間)'],['week','週別(8週)'],['month','月別(6ヶ月)']].forEach(pair=>{
         const el=document.createElement('div'); el.className='chip mini'; el.dataset.pid=pair[0]; el.textContent=pair[1];
-        el.onclick=()=>{ window._wtPeriod=pair[0]; renderStats(); };
+        el.onclick=()=>{ keepScroll(()=>{ window._wtPeriod=pair[0]; renderStats(); }); };
         wpc.appendChild(el);
       });
     }
@@ -1642,7 +1643,7 @@ function renderStats(){
       pc.dataset.init='1';
       [['day','日別(週)'],['week','週別'],['month','月別'],['all','全期間']].forEach(pair=>{
         const el=document.createElement('div'); el.className='chip mini'; el.dataset.pid=pair[0]; el.textContent=pair[1];
-        el.onclick=()=>{ window._catView=pair[0]; window._catOff=0; window._catPick=null; renderStats(); };
+        el.onclick=()=>{ keepScroll(()=>{ window._catView=pair[0]; window._catOff=0; window._catPick=null; renderStats(); }); };
         pc.appendChild(el);
       });
     }
@@ -1684,7 +1685,7 @@ function renderStats(){
         const sel=(window._catPick===dd.key);
         col.innerHTML='<div class="mv">'+(showV?(fmtH(dd.total)||''):'')+'</div><div class="bararea" style="gap:0'+(sel?'; outline:2px solid var(--accent); outline-offset:1px; border-radius:4px':'')+'">'+segs+'</div><div class="ml ml2" style="font-size:8.5px'+(sel?'; color:var(--accent); font-weight:700':'')+'">'+dd.label+'</div>';
         col.style.cursor='pointer';
-        col.onclick=()=>{ window._catPick=(window._catPick===dd.key)?null:dd.key; renderStats(); };
+        col.onclick=()=>{ keepScroll(()=>{ window._catPick=(window._catPick===dd.key)?null:dd.key; renderStats(); }); };
         stackEl.appendChild(col);
       });
     }
@@ -1860,7 +1861,7 @@ function bindDrag(el){
     document.addEventListener('pointercancel',end);
   });
 }
-function tdDoneTgl(){ const f=localStorage.getItem('ks_tdfold')==='1'; localStorage.setItem('ks_tdfold', f?'0':'1'); renderTodo(); }
+function tdDoneTgl(){ const f=localStorage.getItem('ks_tdfold')!=='0'; localStorage.setItem('ks_tdfold', f?'0':'1'); renderTodo(); }
 function renderTodo(){
   const el=document.getElementById('todoTitle'); if(!el) return;
   const ym=todayKey().slice(0,7);
@@ -1879,7 +1880,7 @@ function renderTodo(){
     list.forEach(([id,it])=>body.appendChild(todoRow(id,it,ym,'open')));
     wrap.appendChild(hd); wrap.appendChild(body); sec.appendChild(wrap);
   });
-  const tdFold=localStorage.getItem('ks_tdfold')==='1';
+  const tdFold=localStorage.getItem('ks_tdfold')!=='0';
   document.getElementById('todoDoneTitle').textContent=doneThis.length?((tdFold?'▸ ':'▾ ')+'今月完了 '+doneThis.length+'件'+(tdFold?'（タップで表示）':'')):'';
   const dn=document.getElementById('todoDone'); dn.innerHTML='';
   dn.style.display=tdFold?'none':'';
@@ -2290,7 +2291,10 @@ async function importPhotosZip(inp){
 function lgNorm(c){ return c==='food'?'place':(c||'other'); }
 function lgCatLabel(id){ const c=LOGCATS.find(x=>x[0]===lgNorm(id)); return c?c[1]:'✨'; }
 let lgAll=true;
-function lgToggleAll(){ lgAll=!lgAll; renderLog(); }
+function keepScroll(fn){ const sy=window.scrollY; fn();
+  requestAnimationFrame(()=>{ window.scrollTo(0, sy); });
+  setTimeout(()=>{ window.scrollTo(0, sy); }, 60); }
+function lgToggleAll(){ keepScroll(()=>{ lgAll=!lgAll; renderLog(); }); }
 function drawLogListAll(){
   const list=document.getElementById('logList'); list.innerHTML='';
   const all=[];
@@ -2300,10 +2304,15 @@ function drawLogListAll(){
   let count=0;
   LOGCATS.forEach(pair=>{
     if(lgFilter!=='all' && lgFilter!==pair[0]) return;
-    const items=all.filter(it=>lgNorm(it.c)===pair[0]).sort((a,b)=>(b.d||'').localeCompare(a.d||''));
-    if(!items.length) return;
+    const itemsAll=all.filter(it=>lgNorm(it.c)===pair[0]).sort((a,b)=>(b.d||'').localeCompare(a.d||''));
+    if(!itemsAll.length) return;
+    const yearHead=todayKey().slice(0,4)+'-01-01';
+    const oldOpen=(window._lgOldOpen=window._lgOldOpen||{});
+    const curItems=itemsAll.filter(it=>(it.d||'')>=yearHead);
+    const oldItems=itemsAll.filter(it=>(it.d||'')<yearHead);
+    const items=oldOpen[pair[0]]? itemsAll : curItems;
     const h=document.createElement('div');
-    h.innerHTML=pair[1]+'<span style="opacity:.85; font-weight:600; font-size:11px; margin-left:8px">'+items.length+'件</span>';
+    h.innerHTML=pair[1]+'<span style="opacity:.85; font-weight:600; font-size:11px; margin-left:8px">'+itemsAll.length+'件（今年'+curItems.length+'）</span>';
     h.style.cssText='margin:14px 0 4px; background:'+(pair[2]||'#8a867c')+'; color:#fff; border-radius:8px; padding:6px 12px; font-weight:700; font-size:13.5px;';
     list.appendChild(h);
     items.forEach(it=>{ count++;
@@ -2314,6 +2323,15 @@ function drawLogListAll(){
         '<span>'+(it.r?'<span style="color:var(--accent)">'+'★'.repeat(it.r)+'</span>':'<span class="small">—</span>')+(it.ph?' 📷':'')+'</span>';
       row.onclick=()=>{ showLogDetail(it); };
       list.appendChild(row); });
+    if(oldItems.length){
+      const tg=document.createElement('div');
+      tg.className='small';
+      tg.style.cssText='padding:8px 2px; cursor:pointer; user-select:none;';
+      tg.textContent=(oldOpen[pair[0]]?'▾ ':'▸ ')+'去年以前 '+oldItems.length+'件'+(oldOpen[pair[0]]?'':'（タップで表示）');
+      tg.onclick=()=>{ keepScroll(()=>{ oldOpen[pair[0]]=!oldOpen[pair[0]]; drawLogListAll(); }); };
+      list.appendChild(tg);
+      if(!oldOpen[pair[0]]) count+=0;
+    }
   });
   if(!count) list.innerHTML='<div class="small" style="padding:8px 2px">記録がありません</div>';
 }
@@ -2342,7 +2360,7 @@ function drawLogChips(){
   const w=document.getElementById('logCatChips'); w.innerHTML='';
   LOGCATS.concat([['all','すべて']]).forEach(pair=>{
     const c=document.createElement('div'); c.className='chip mini'+(lgFilter===pair[0]?' on':'');
-    c.textContent=pair[1]; c.onclick=()=>{ lgFilter=pair[0]; drawLogChips(); if(lgAll) drawLogListAll(); else drawLogList(); };
+    c.textContent=pair[1]; c.onclick=()=>{ keepScroll(()=>{ lgFilter=pair[0]; drawLogChips(); if(lgAll) drawLogListAll(); else drawLogList(); }); };
     w.appendChild(c); });
 }
 function drawLogList(){
