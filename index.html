@@ -281,7 +281,7 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
       <button class="btn" style="margin-top:0; white-space:nowrap; flex:none" onclick="addTodo()">追加</button>
     </div>
     <div id="todoSections" style="margin-top:10px"></div>
-    <div class="small" id="todoDoneTitle" style="margin-top:14px"></div>
+    <div class="small" id="todoDoneTitle" style="margin-top:14px; cursor:pointer; user-select:none" onclick="tdDoneTgl()"></div>
     <div id="todoDone"></div>
     <div class="small" style="margin-top:10px">□タップで完了・文字タップで編集画面・右端の⠿をドラッグで並べ替え（欄をまたぐと分類が変わります）。月が替わると未完了は持ち越し、完了分はアーカイブへ。</div>
   </div>
@@ -547,16 +547,6 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
 <!-- ============ ログ（経験の記録） ============ -->
 <div class="page" id="page-log">
   <div class="card">
-    <div class="calhead">
-      <button class="navbtn" onclick="lgMove(-1)">‹</button>
-      <b id="logTitle">—</b>
-      <button class="navbtn" onclick="lgMove(1)">›</button>
-      <button class="btn ghost" id="logAllBtn" style="margin:0 0 0 8px; padding:6px 10px; font-size:12px; flex:none" onclick="lgToggleAll()">📚 これまで</button>
-    </div>
-    <div class="modes" id="logCatChips" style="margin-top:6px"></div>
-    <div id="logList"></div>
-  </div>
-  <div class="card">
     <h2 id="logFormTitle">記録を追加</h2>
     <div class="modes" id="logFormCats"></div>
     <input type="text" id="logName" placeholder="タイトル（作品名・店名・場所）">
@@ -572,6 +562,16 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
       <button class="btn ghost" id="logCancelBtn" style="display:none" onclick="resetLogForm()">キャンセル</button>
       <button class="btn ghost" id="logDelBtn" style="display:none; color:var(--accent)" onclick="delLogItem()">削除</button>
     </div>
+  </div>
+  <div class="card">
+    <div class="calhead">
+      <button class="navbtn" onclick="lgMove(-1)">‹</button>
+      <b id="logTitle">—</b>
+      <button class="navbtn" onclick="lgMove(1)">›</button>
+      <button class="btn ghost" id="logAllBtn" style="margin:0 0 0 8px; padding:6px 10px; font-size:12px; flex:none" onclick="lgToggleAll()">📚 これまで</button>
+    </div>
+    <div class="modes" id="logCatChips" style="margin-top:6px"></div>
+    <div id="logList"></div>
   </div>
 </div>
 
@@ -1860,6 +1860,7 @@ function bindDrag(el){
     document.addEventListener('pointercancel',end);
   });
 }
+function tdDoneTgl(){ const f=localStorage.getItem('ks_tdfold')==='1'; localStorage.setItem('ks_tdfold', f?'0':'1'); renderTodo(); }
 function renderTodo(){
   const el=document.getElementById('todoTitle'); if(!el) return;
   const ym=todayKey().slice(0,7);
@@ -1878,9 +1879,11 @@ function renderTodo(){
     list.forEach(([id,it])=>body.appendChild(todoRow(id,it,ym,'open')));
     wrap.appendChild(hd); wrap.appendChild(body); sec.appendChild(wrap);
   });
-  document.getElementById('todoDoneTitle').textContent=doneThis.length?('今月完了 '+doneThis.length+'件'):'';
+  const tdFold=localStorage.getItem('ks_tdfold')==='1';
+  document.getElementById('todoDoneTitle').textContent=doneThis.length?((tdFold?'▸ ':'▾ ')+'今月完了 '+doneThis.length+'件'+(tdFold?'（タップで表示）':'')):'';
   const dn=document.getElementById('todoDone'); dn.innerHTML='';
-  doneThis.forEach(([id,it])=>dn.appendChild(todoRow(id,it,ym,'done')));
+  dn.style.display=tdFold?'none':'';
+  if(!tdFold) doneThis.forEach(([id,it])=>dn.appendChild(todoRow(id,it,ym,'done')));
   const arch={};
   all.forEach(([id,t])=>{
     const isArch=!!t.arch;
@@ -1945,7 +1948,7 @@ function diaryBase(){ const c=syncCfg(); if(!c) return null;
   return c.db.trim().replace(/\/+$/,'')+'/r/'+encodeURIComponent(c.code.trim())+'-j'; }
 const PH={};
 let diCur=null, lgCur=null, diOpen=null, diaryTmr=null;
-let lgEdit=null, lgPhoto=null, lgRating=0, lgCat='other', lgFilter='all';
+let lgEdit=null, lgPhoto=null, lgRating=0, lgCat='book', lgFilter='book';
 const LOGCATS=[['book','📖 本','#3d7a4f'],['movie','🎬 映画・ドラマ','#6b5bd6'],['anime','📺 アニメ','#e0763f'],['manga','📕 漫画','#c94f6d'],['place','🗺️ 場所・おでかけ・ごはん','#33608d'],['other','✨ その他','#8a867c']];
 
 async function dGET(p){ const b=diaryBase(); if(!b) return null;
@@ -2405,7 +2408,7 @@ function drawStars(){ const w=document.getElementById('logStars'); w.innerHTML='
     s.textContent=i<=lgRating?'★':'☆'; s.style.cssText='cursor:pointer;color:'+(i<=lgRating?'var(--accent)':'var(--sub)');
     s.onclick=(function(n){ return function(){ lgRating=(lgRating===n?0:n); drawStars(); }; })(i);
     w.appendChild(s); } }
-function resetLogForm(){ lgEdit=null; lgPhoto=null; lgRating=0; lgCat='other';
+function resetLogForm(){ lgEdit=null; lgPhoto=null; lgRating=0; lgCat='book';
   const n=document.getElementById('logName'); if(!n) return;
   n.value=''; document.getElementById('logAuthor').value='';
   const lmr=document.getElementById('logMemo'); lmr.value=''; lmr.style.height='';
