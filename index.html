@@ -220,7 +220,10 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
       <div><b>断れた回数</b><div class="hint">「体調が読めないので、お約束できないです」+黙る</div></div>
     </div>
     <div class="small" style="margin-top:6px">今日のメモ</div>
-    <textarea id="todayMemo" rows="2" placeholder="一言でOK（何を作った/どうだった）" oninput="saveTodayMemoLite()" onchange="saveTodayMemo()"></textarea>
+    <div id="todayMemoBar"></div>
+    <div id="todayMemo" contenteditable="true"
+      style="min-height:76px; padding:9px 11px; border:1px solid var(--line); border-radius:12px; background:var(--bg); font-size:13px; line-height:1.75; outline:none; white-space:pre-wrap; word-break:break-word;"
+      oninput="saveTodayMemoLite()" onblur="saveTodayMemo()"></div>
   </div>
   <div class="card">
     <h2>今日の体調 (1-5)</h2>
@@ -270,7 +273,10 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <div id="editCats"></div>
     <div class="small" id="editCatSum" style="margin-top:6px"></div>
     <div class="small">メモ</div>
-    <textarea id="editMemo" rows="2" placeholder="この日のメモ" oninput="saveEditMemoLite()" onchange="saveEditMemo()"></textarea>
+    <div id="editMemoBar"></div>
+    <div id="editMemo" contenteditable="true"
+      style="min-height:76px; padding:9px 11px; border:1px solid var(--line); border-radius:12px; background:var(--bg); font-size:13px; line-height:1.75; outline:none; white-space:pre-wrap; word-break:break-word;"
+      oninput="saveEditMemoLite()" onblur="saveEditMemo()"></div>
     <div id="edDiaryBox" class="small" style="display:none; margin-top:8px; padding:8px 10px; background:var(--bg); border:1px solid var(--line); border-radius:8px; white-space:pre-wrap; max-height:180px; overflow:auto"></div>
     <button class="btn ghost" id="edDiaryBtn" style="margin-top:8px">📖 この日の日記を開く</button>
   </div>
@@ -935,7 +941,9 @@ function renderToday(){
     document.getElementById('kotowariRow').style.display=zaiseki?'flex':'none';
     document.getElementById('kotowariNum').textContent=d.kotowari||0;
     const tmEl=document.getElementById('todayMemo');
-    if(document.activeElement!==tmEl) tmEl.value=d.memo||'';
+    const tmBar=document.getElementById('todayMemoBar');
+    if(tmBar && !tmBar.innerHTML) tmBar.innerHTML=rtBar('todayMemo');
+    if(document.activeElement!==tmEl) rtSet(tmEl, d.memo||'');
   }
   const h=now.getHours()+now.getMinutes()/60;
   const tl=document.getElementById('timeline'); tl.innerHTML='';
@@ -1125,9 +1133,9 @@ function renderWork(d){
     cs.textContent=parts.length?('内訳: '+parts.join(' ・ ')):(wc.st==='working'?'↑いま何をしているかタップ（切替時間が自動計上されます）':'');
   }
 }
-function saveTodayMemoLite(){ const d=day(); d.memo=document.getElementById('todayMemo').value; touch(d); save(); }
-function saveEditMemoLite(){ if(!selKey)return; const r=day(selKey); r.memo=document.getElementById('editMemo').value; touch(r); save(); }
-function saveTodayMemo(){ const d=day(); d.memo=document.getElementById('todayMemo').value; touch(d); save(); renderCal(); }
+function saveTodayMemoLite(){ const d=day(); d.memo=rtGet(document.getElementById('todayMemo')); touch(d); save(); }
+function saveEditMemoLite(){ if(!selKey)return; const r=day(selKey); r.memo=rtGet(document.getElementById('editMemo')); touch(r); save(); }
+function saveTodayMemo(){ const d=day(); d.memo=rtGet(document.getElementById('todayMemo')); touch(d); save(); renderCal(); }
 
 // ================= render: calendar =================
 let calY, calM, selKey=null;
@@ -1212,7 +1220,9 @@ function renderEditor(k){
   });
   document.getElementById('editPageNum').textContent=fmtP(rec.pages);
   const emEl=document.getElementById('editMemo');
-  if(document.activeElement!==emEl) emEl.value=rec.memo||'';
+  const emBar=document.getElementById('editMemoBar');
+  if(emBar && !emBar.innerHTML) emBar.innerHTML=rtBar('editMemo');
+  if(document.activeElement!==emEl) rtSet(emEl, rec.memo||'');
   const et=document.getElementById('editTaicho'); et.innerHTML='';
   for(let i=1;i<=5;i++){
     const c=document.createElement('div'); c.className='chip mini'+(rec.taicho===i?' ok':'');
@@ -1284,7 +1294,7 @@ function syncWorkToCat(k,mins){
   toast('実働を'+mins+'分に合わせました');
 }
 function editPages(n){ if(!selKey)return; const r=day(selKey); r.pages=Math.max(0,Math.round(((r.pages||0)+n)*2)/2); if(n>0&&!r.checks.manga)r.checks.manga=true; touch(r); save(); renderCal(); renderEditor(selKey); renderAll(); }
-function saveEditMemo(){ if(!selKey)return; const r=day(selKey); r.memo=document.getElementById('editMemo').value; touch(r); save(); renderCal(); }
+function saveEditMemo(){ if(!selKey)return; const r=day(selKey); r.memo=rtGet(document.getElementById('editMemo')); touch(r); save(); renderCal(); }
 
 // ================= render: week =================
 function renderWeek(){
@@ -2186,7 +2196,7 @@ function insertDiarySkeleton(){
   let line='[実績] 記録なし';
   if(rec){ const wc=dayWC(rec,k);
     line='[実績] 実働'+(wc.workMs/3600000).toFixed(1)+'h / 本編'+fmtP(rec.pages||0)+'P'+(rec.taicho?' / 体調'+rec.taicho:'');
-    if(rec.memo) line+='\nメモ: '+rec.memo;
+    if(rec.memo) line+='\nメモ: '+stripRich(rec.memo);
   }
   const cur=rtGet(ta);
   rtSet(ta, (cur.trim()? cur+'\n':'')+line);
