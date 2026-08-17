@@ -223,7 +223,7 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <div id="todayMemoBar"></div>
     <div id="todayMemo" contenteditable="true"
       style="min-height:76px; padding:9px 11px; border:1px solid var(--line); border-radius:12px; background:var(--bg); font-size:13px; line-height:1.75; outline:none; white-space:pre-wrap; word-break:break-word;"
-      oninput="saveTodayMemoLite()" onblur="saveTodayMemo()"></div>
+      oninput="rtNormalize(this); saveTodayMemoLite()" onblur="saveTodayMemo()"></div>
   </div>
   <div class="card">
     <h2>今日の体調 (1-5)</h2>
@@ -276,7 +276,7 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <div id="editMemoBar"></div>
     <div id="editMemo" contenteditable="true"
       style="min-height:76px; padding:9px 11px; border:1px solid var(--line); border-radius:12px; background:var(--bg); font-size:13px; line-height:1.75; outline:none; white-space:pre-wrap; word-break:break-word;"
-      oninput="saveEditMemoLite()" onblur="saveEditMemo()"></div>
+      oninput="rtNormalize(this); saveEditMemoLite()" onblur="saveEditMemo()"></div>
     <div id="edDiaryBox" class="small" style="display:none; margin-top:8px; padding:8px 10px; background:var(--bg); border:1px solid var(--line); border-radius:8px; white-space:pre-wrap; max-height:180px; overflow:auto"></div>
     <button class="btn ghost" id="edDiaryBtn" style="margin-top:8px">📖 この日の日記を開く</button>
   </div>
@@ -531,7 +531,7 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <div id="diaryBar"></div>
     <div id="diaryText" contenteditable="true" data-ph="日記（1行でもOK）"
       style="min-height:180px; padding:10px 12px; border:1px solid var(--line); border-radius:12px; background:var(--bg); font-size:13.5px; line-height:1.8; outline:none; white-space:pre-wrap; word-break:break-word;"
-      oninput="diaryLite()" onblur="saveDiaryText()"></div>
+      oninput="rtNormalize(this); diaryLite()" onblur="saveDiaryText()"></div>
     <div id="diaryPhotos" class="phgrid"></div>
     <button class="btn ghost" onclick="document.getElementById('diaryPhotoFile').click()">📷 写真を追加</button>
     <input type="file" id="diaryPhotoFile" accept="image/*" style="display:none" onchange="addDiaryPhoto(this)">
@@ -557,7 +557,7 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <input type="text" id="logAuthor" placeholder="作者・監督・スタジオなど（任意）" style="margin-top:6px">
     <div id="logStars" style="font-size:22px; letter-spacing:5px; margin:6px 0"></div>
     <div id="logMemoBar" style="margin-top:6px"></div>
-    <div id="logMemo" contenteditable="true"
+    <div id="logMemo" contenteditable="true" oninput="rtNormalize(this)"
       style="min-height:64px; padding:9px 11px; border:1px solid var(--line); border-radius:12px; background:var(--bg); font-size:13px; line-height:1.75; outline:none; white-space:pre-wrap; word-break:break-word;"></div>
     <input type="date" id="logDate" style="margin-top:6px">
     <div id="logPhotoWrap" class="phgrid"></div>
@@ -2059,16 +2059,61 @@ function rtGet(el){
   return lines.join('\n').replace(/\*\*\*\*/g,'');
 }
 function rtFire(el){ if(el) el.dispatchEvent(new Event('input',{bubbles:true})); }
-function rtBold(id){ const el=document.getElementById(id); if(!el) return;
-  el.focus(); document.execCommand('bold'); rtFire(el); }
+function rtLineOf(el){
+  const sel=window.getSelection(); if(!sel.rangeCount) return null;
+  let n=sel.getRangeAt(0).startContainer;
+  while(n && n.parentNode && n.parentNode!==el) n=n.parentNode;
+  if(!n || n.parentNode!==el) return null;
+  if(n.nodeType===3){ const d=document.createElement('div'); el.replaceChild(d,n); d.appendChild(n); n=d; }
+  return n;
+}
+function rtNormalize(el){
+  if(!el) return;
+  const line=rtLineOf(el);
+  if(line && line.nodeType===1 && line.style && (line.style.fontSize||line.style.fontWeight)){
+    if(!(line.textContent||'').trim()){ line.style.fontSize=''; line.style.fontWeight=''; }
+  }
+  el.querySelectorAll('b,strong').forEach(b=>{
+    if(!(b.textContent||'').trim() && !b.querySelector('br')) b.replaceWith(...b.childNodes);
+  });
+}
+function rtBold(id){
+  const el=document.getElementById(id); if(!el) return;
+  el.focus();
+  try{ document.execCommand('styleWithCSS', false, false); }catch(e){}
+  const sel=window.getSelection();
+  if(sel.rangeCount && !sel.getRangeAt(0).collapsed){ document.execCommand('bold'); rtFire(el); return; }
+  const line=rtLineOf(el);
+  if(!line){ rtFire(el); return; }
+  const b=line.querySelector('b,strong');
+  const whole=b && (b.textContent||'')===(line.textContent||'') && (line.textContent||'').trim();
+  if(whole){ b.replaceWith(...b.childNodes); }
+  else {
+    const nb=document.createElement('b');
+    while(line.firstChild) nb.appendChild(line.firstChild);
+    line.appendChild(nb);
+    if(!(line.textContent||'').trim()){ nb.appendChild(document.createElement('br')); }
+  }
+  const r=document.createRange(); r.selectNodeContents(line); r.collapse(false);
+  sel.removeAllRanges(); sel.addRange(r);
+  rtFire(el);
+}
+function rtClear(id){
+  const el=document.getElementById(id); if(!el) return;
+  el.focus();
+  const sel=window.getSelection();
+  if(sel.rangeCount && !sel.getRangeAt(0).collapsed){ document.execCommand('removeFormat'); rtFire(el); return; }
+  const line=rtLineOf(el);
+  if(line){ line.style.fontSize=''; line.style.fontWeight='';
+    const t=line.textContent||''; line.innerHTML = t? dEsc(t) : '<br>';
+    const r=document.createRange(); r.selectNodeContents(line); r.collapse(false);
+    sel.removeAllRanges(); sel.addRange(r); }
+  rtFire(el);
+}
 function rtHead(id,big){
   const el=document.getElementById(id); if(!el) return;
   el.focus();
-  const sel=window.getSelection(); if(!sel.rangeCount) return;
-  let n=sel.getRangeAt(0).startContainer;
-  while(n && n.parentNode && n.parentNode!==el) n=n.parentNode;
-  if(!n || n.parentNode!==el) return;
-  if(n.nodeType===3){ const d=document.createElement('div'); el.replaceChild(d,n); d.appendChild(n); n=d; }
+  const n=rtLineOf(el); if(!n) return;
   const want=big?'17.5px':'15.5px';
   if(n.style.fontSize===want){ n.style.fontSize=''; n.style.fontWeight=''; }
   else { n.style.fontSize=want; n.style.fontWeight='700'; }
@@ -2078,7 +2123,8 @@ function rtBar(id){
   return '<div style="display:flex; gap:6px; margin-bottom:5px; flex-wrap:wrap">'+
     '<button class="navbtn" style="font-weight:800; padding:0 12px; height:30px" onclick="rtBold(\'' +id+ '\')">B</button>'+
     '<button class="navbtn" style="padding:0 10px; height:30px; font-size:14px" onclick="rtHead(\'' +id+ '\',1)">大</button>'+
-    '<button class="navbtn" style="padding:0 10px; height:30px; font-size:12.5px" onclick="rtHead(\'' +id+ '\',0)">中</button></div>';
+    '<button class="navbtn" style="padding:0 10px; height:30px; font-size:12.5px" onclick="rtHead(\'' +id+ '\',0)">中</button>'+
+    '<button class="navbtn" style="padding:0 10px; height:30px; font-size:11.5px" onclick="rtClear(\'' +id+ '\')" title="この行の書式を消す">書式クリア</button></div>';
 }
 function diMergeMonth(store,ym,remote){ const loc=store[ym]=store[ym]||{}; let ch=false;
   Object.keys(remote||{}).forEach(k=>{ const l=loc[k], r=remote[k];
@@ -2280,7 +2326,7 @@ function renderMemo(){
       w.appendChild(wrap);
       const ta=document.getElementById('mmText');
       rtSet(ta, it.t||'');
-      ta.addEventListener('input', ()=>{ clearTimeout(mmTmr); mmTmr=setTimeout(mmSave,1200); });
+      ta.addEventListener('input', ()=>{ rtNormalize(ta); clearTimeout(mmTmr); mmTmr=setTimeout(mmSave,1200); });
       ta.addEventListener('blur', mmSave);
       return;
     }
