@@ -2006,7 +2006,7 @@ function diaryBase(){ const c=syncCfg(); if(!c) return null;
   return c.db.trim().replace(/\/+$/,'')+'/r/'+encodeURIComponent(c.code.trim())+'-j'; }
 const PH={};
 let diCur=null, lgCur=null, diOpen=null, diaryTmr=null;
-let lgEdit=null, lgPhoto=null, lgRating=0, lgCat='book', lgFilter='book';
+let lgEdit=null, lgPhoto=null, lgRating=0, lgCat='other', lgFilter='book';
 const LOGCATS=[['book','📖 本','#3d7a4f'],['movie','🎬 映画・ドラマ','#6b5bd6'],['anime','📺 アニメ','#e0763f'],['manga','📕 漫画','#c94f6d'],['game','🎮 ゲーム','#2f8f8f'],['place','🗺️ 場所・おでかけ・ごはん','#33608d'],['think','💭 思考','#7a5c9e'],['other','✨ その他','#8a867c']];
 
 async function dGET(p){ const b=diaryBase(); if(!b) return null;
@@ -2640,7 +2640,7 @@ function drawStars(){ const w=document.getElementById('logStars'); w.innerHTML='
     s.textContent=i<=lgRating?'★':'☆'; s.style.cssText='cursor:pointer;color:'+(i<=lgRating?'var(--accent)':'var(--sub)');
     s.onclick=(function(n){ return function(){ lgRating=(lgRating===n?0:n); drawStars(); }; })(i);
     w.appendChild(s); } }
-function resetLogForm(){ lgEdit=null; lgPhoto=null; lgRating=0; lgCat='book';
+function resetLogForm(){ lgEdit=null; lgPhoto=null; lgRating=0; lgCat='other';
   const n=document.getElementById('logName'); if(!n) return;
   n.value=''; document.getElementById('logAuthor').value='';
   const lmb=document.getElementById('logMemoBar'); if(lmb&&!lmb.innerHTML) lmb.innerHTML=rtBar('logMemo');
@@ -2701,12 +2701,37 @@ function lgMove(n){ lgAll=false; const [y,m]=lgCur.split('-').map(Number);
 
 // ---- 判定日カウントダウン ----
 const HABITS20=['太陽の光を浴びる','ベッドメイキング','肩甲骨剥がし・ほぐし','朝のコーヒー','朝のウォーキング','神社参拝','ゴミ拾い','コールドシャワー','朝キムチ・サバ','朝食にメカブ','間食にフルーツ','SNS投稿','いい匂いのものをつける','移動中に何するか決める','食事会・飲み会は「ありがとう」と思えるやつだけ行く','足トレ（下半身）','クレアチン','湯船に浸かる','風呂上がり（寝る前1h）はスマホをいじらない','寝る前のルーティンを固める','風呂とトイレにスマホを持ち込まない'];
-const HABITS_ST=['没頭「欲望」「勝ち筋」「進捗」','1/6エクササイズ','zone2の有酸素運動','HIIT（ランニングよりコスパが良い）','毎日同じ時間に起きる','シングルタスク','闇風呂ストレッチ','昼寝','体重×1.5gのたんぱく質を摂る','予定は詰め込まない。余白と余裕','朝散歩','small win日記','筋トレ','ベジファースト','1時間にコップ一杯の水','寝る前1時間のデジタルデトックス','起きたまま仮眠 - NSDR','もし〜したらルール（歯磨きしたらスクワット等）','スタンフォード式腹式呼吸','1時間に1回立ち上がる'];
+const HABITS_ST=[
+ ['没頭','「欲望」「勝ち筋」「進捗」を可視化して夢中になれる領域を見つける。脳の疲労ブレーキが外れる最強スイッチ'],
+ ['ラスト5分エクササイズ','50分作業したら10分動く。区切りの終わりを軽い運動に充てて血流を戻す'],
+ ['zone2の有酸素運動','会話がギリギリ続く強度で週2〜3回・20〜40分。ミトコンドリアを鍛えて体力の土台を作る'],
+ ['HIIT','全力20秒＋休憩10秒を8本＝4分。エネルギーの総量そのものを底上げする'],
+ ['毎日同じ時間に起きる','休日もズレは前後1時間まで。バラバラだと国内にいながら時差ボケになる'],
+ ['シングルタスク','脳は同時処理できない。切替コストで生産性は最大40%低下。通知を切って1つだけ'],
+ ['闇風呂ストレッチ','就寝1〜2時間前に40〜42℃へ10分。上がった体温が下がる時が入眠スイッチ。暗い風呂＋長い呼気'],
+ ['昼寝','10〜20分（最大30分）。NASAの研究では26分の仮眠で成績+34%・注意力+54%。直前のカフェインも有効'],
+ ['体重×1.5gのたんぱく質','修理する材料がなければ回復しない。1回30〜40gを上限に朝昼晩へ分ける'],
+ ['予定は詰め込まない','90分やったら15分休む。余白を先に置くほうが1日の総量は増える'],
+ ['朝散歩','起床1時間以内に5〜20分。体内時計がリセットされ、夜の眠りへの先行投資になる'],
+ ['small win日記','1日の終わりに「できたこと」を数行。脳は放っておくと悪い方を見るのでバランスを取る'],
+ ['筋トレ','週2〜3回、スクワットなど大きい筋肉から。血糖値スパイクを抑え、マイオカインが脳を活性化'],
+ ['ベジファースト','一口目は野菜。糖の吸収が緩やかになり、午後の強烈な眠気を防げる'],
+ ['1時間にコップ一杯の水','水分が1〜2%減るだけで血がドロドロになり疲労感が出る。渇く前に飲む'],
+ ['寝る前1時間のデジタルデトックス','光より情報が問題。手の届かない場所に置き、照明を落として読書かストレッチ'],
+ ['起きたまま仮眠（NSDR）','目を閉じて力を抜き10〜20分ぼーっとする。休息＋ドパミンで次の行動の燃料が戻る'],
+ ['もし〜したらルール','「歯を磨いたらスクワット10回」のように行動のスイッチを先に決める。決断の消耗が激減'],
+ ['スタンフォード式腹式呼吸','5秒で吸って腹を膨らませ、膨らみを保ったまま5〜7秒で吐く。体幹が安定し神経の疲れが抜ける'],
+ ['1時間に1回立ち上がる','座りっぱなしは現代のタバコ。ふくらはぎ＝第二の心臓を動かして血を巡らせる']
+];
+const CUP_NOTE='器を広げる=筋トレ・HIIT・zone2 ／ 穴を塞ぐ=立ち上がる・もし〜したら・シングルタスク・余白 ／ 水を足す=NSDR・水分・デトックス・昼寝・闇風呂・規則正しい睡眠。全部やらず、足りていない1つを1週間試す。';
 function renderHst(){
   const l=document.getElementById('hstList');
   if(!l || l.innerHTML) return;
-  l.innerHTML='<div style="font-size:11.5px; color:var(--sub); line-height:1.9; columns:2; column-gap:14px">'+
-    HABITS_ST.map((t,i)=>'<div style="break-inside:avoid">'+(i+1)+'. '+dEsc(t)+'</div>').join('')+'</div>';
+  l.innerHTML='<div style="font-size:11.5px; line-height:1.65; columns:2; column-gap:16px">'+
+    HABITS_ST.map((h,i)=>'<div style="break-inside:avoid; margin-bottom:7px">'+
+      '<div style="color:var(--ink); font-weight:700">'+(i+1)+'. '+dEsc(h[0])+'</div>'+
+      '<div style="color:var(--sub); font-size:10.5px; line-height:1.55">'+dEsc(h[1])+'</div></div>').join('')+'</div>'+
+    '<div class="small" style="margin-top:8px; font-size:10.5px; line-height:1.6">'+dEsc(CUP_NOTE)+'</div>';
 }
 function renderH20(){
   renderHst();
