@@ -237,6 +237,8 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
   <div class="card">
     <div class="small" style="font-weight:700" id="h20Head">習慣</div>
     <div id="h20List" style="margin-top:6px"></div>
+    <div class="small" style="font-weight:700; margin-top:14px">体力お化けになる20の習慣</div>
+    <div id="hstList" style="margin-top:6px"></div>
   </div>
 </div>
 
@@ -1831,6 +1833,8 @@ function editTodo(id){ if(Date.now()-(window._jd||0)<400) return; const it=DB.to
   const mk=(label,on,fn)=>{ const el=document.createElement('div'); el.className='chip mini'+(on?' on':''); el.textContent=label; el.onclick=fn; s.appendChild(el); };
   mk(it.done?'完了 ✓':'未完了', !!it.done, ()=>{ toggleTodo(id); editTodo(id); });
   mk(it.arch?'アーカイブ済':'アーカイブする', !!it.arch, ()=>{ tmArchive(); });
+  mk(it.p?'📌 ピン解除':'📌 ピン止め', !!it.p, ()=>{ const t=DB.todos[id]; if(!t) return;
+    t.p=t.p?0:1; t.u=Date.now(); persist(); schedulePush(); renderTodo(); editTodo(id); });
   document.getElementById('tmInfo').textContent=
     '作成: '+(it.created||'-')+(it.done?(' ／ 完了: '+it.done):'')+(it.arch?(' ／ アーカイブ: '+it.arch):'');
   document.getElementById('todoModal').style.display='flex';
@@ -1859,11 +1863,12 @@ function tmArchive(){
 function archiveMonth(it){ return it.created || (it.done? it.done.slice(0,7) : todayKey().slice(0,7)); }
 function todoRow(id,it,ym,ctx){
   const el=document.createElement('div'); el.className='titem'+(it.done?' done':''); el.dataset.id=id;
+  const pin=(!it.done && it.p)?'<span class="ttag" style="color:var(--accent); border-color:var(--accent)">📌</span>':'';
   const carry=(!it.done && it.created && it.created<ym)?'<span class="ttag">'+parseInt(it.created.slice(5))+'月〜</span>':'';
   const archTag=(ctx==='arch'&&!it.done)?'<span class="tarch">未完了</span>':'';
   const handle=(ctx==='open')?'<div class="thandle" title="ドラッグで並べ替え・分類移動">⠿</div>':'';
   el.innerHTML='<div class="tbox" onclick="toggleTodo(\''+id+'\')">'+(it.done?'✓':'')+'</div>'+
-    '<div class="tx" onclick="editTodo(\''+id+'\')" title="タップで編集">'+escT(it.text)+'</div>'+carry+archTag+handle;
+    '<div class="tx" onclick="editTodo(\''+id+'\')" title="タップで編集">'+escT(it.text)+'</div>'+pin+carry+archTag+handle;
   if(ctx==='open') bindDrag(el);
   return el;
 }
@@ -1919,7 +1924,8 @@ function renderTodo(){
   el.textContent='TODO（'+parseInt(ym.slice(0,4))+'年'+parseInt(ym.slice(5))+'月）';
   const all=Object.entries(DB.todos||{}).filter(([,t])=>!t.del);
   const open=all.filter(([,t])=>!t.done&&!t.arch)
-    .sort((a,b)=>((a[1].ord!=null?a[1].ord:a[1].u))-((b[1].ord!=null?b[1].ord:b[1].u)));
+    .sort((a,b)=>{ const pa=a[1].p?1:0, pb=b[1].p?1:0; if(pa!==pb) return pb-pa;
+      return ((a[1].ord!=null?a[1].ord:a[1].u))-((b[1].ord!=null?b[1].ord:b[1].u)); });
   const doneThis=all.filter(([,t])=>t.done&&!t.arch&&t.done.slice(0,7)===ym).sort((a,b)=>b[1].u-a[1].u);
   const sec=document.getElementById('todoSections'); sec.innerHTML='';
   TGROUPS.forEach(([gid,label])=>{
@@ -2001,7 +2007,7 @@ function diaryBase(){ const c=syncCfg(); if(!c) return null;
 const PH={};
 let diCur=null, lgCur=null, diOpen=null, diaryTmr=null;
 let lgEdit=null, lgPhoto=null, lgRating=0, lgCat='book', lgFilter='book';
-const LOGCATS=[['book','📖 本','#3d7a4f'],['movie','🎬 映画・ドラマ','#6b5bd6'],['anime','📺 アニメ','#e0763f'],['manga','📕 漫画','#c94f6d'],['game','🎮 ゲーム','#2f8f8f'],['place','🗺️ 場所・おでかけ・ごはん','#33608d'],['other','✨ その他','#8a867c']];
+const LOGCATS=[['book','📖 本','#3d7a4f'],['movie','🎬 映画・ドラマ','#6b5bd6'],['anime','📺 アニメ','#e0763f'],['manga','📕 漫画','#c94f6d'],['game','🎮 ゲーム','#2f8f8f'],['place','🗺️ 場所・おでかけ・ごはん','#33608d'],['think','💭 思考','#7a5c9e'],['other','✨ その他','#8a867c']];
 
 async function dGET(p){ const b=diaryBase(); if(!b) return null;
   try{ const r=await fetch(b+'/'+p+'.json',{cache:'no-store'}); return r.ok? await r.json(): null; }catch(e){ return null; } }
@@ -2695,7 +2701,15 @@ function lgMove(n){ lgAll=false; const [y,m]=lgCur.split('-').map(Number);
 
 // ---- 判定日カウントダウン ----
 const HABITS20=['太陽の光を浴びる','ベッドメイキング','肩甲骨剥がし・ほぐし','朝のコーヒー','朝のウォーキング','神社参拝','ゴミ拾い','コールドシャワー','朝キムチ・サバ','朝食にメカブ','間食にフルーツ','SNS投稿','いい匂いのものをつける','移動中に何するか決める','食事会・飲み会は「ありがとう」と思えるやつだけ行く','足トレ（下半身）','クレアチン','湯船に浸かる','風呂上がり（寝る前1h）はスマホをいじらない','寝る前のルーティンを固める','風呂とトイレにスマホを持ち込まない'];
+const HABITS_ST=['没頭「欲望」「勝ち筋」「進捗」','1/6エクササイズ','zone2の有酸素運動','HIIT（ランニングよりコスパが良い）','毎日同じ時間に起きる','シングルタスク','闇風呂ストレッチ','昼寝','体重×1.5gのたんぱく質を摂る','予定は詰め込まない。余白と余裕','朝散歩','small win日記','筋トレ','ベジファースト','1時間にコップ一杯の水','寝る前1時間のデジタルデトックス','起きたまま仮眠 - NSDR','もし〜したらルール（歯磨きしたらスクワット等）','スタンフォード式腹式呼吸','1時間に1回立ち上がる'];
+function renderHst(){
+  const l=document.getElementById('hstList');
+  if(!l || l.innerHTML) return;
+  l.innerHTML='<div style="font-size:11.5px; color:var(--sub); line-height:1.9; columns:2; column-gap:14px">'+
+    HABITS_ST.map((t,i)=>'<div style="break-inside:avoid">'+(i+1)+'. '+dEsc(t)+'</div>').join('')+'</div>';
+}
 function renderH20(){
+  renderHst();
   const l=document.getElementById('h20List');
   const hd=document.getElementById('h20Head');
   if(hd) hd.textContent=HABITS20.length+'の習慣';
