@@ -1796,7 +1796,7 @@ function renderStats(){
           '<div style="flex:1; position:relative; height:17px">'+bars+'</div>'+
           '<div style="width:'+(R-6)+'px; flex:none; text-align:right; line-height:1.15">'+(wc?('<b style="font-size:12.5px">'+(fmtH(wc.workMs)||'0')+'</b><div style="font-size:9px; color:var(--sub); white-space:nowrap">'+sub+'</div>'):'<span style="color:var(--dim)">—</span>')+'</div>'+
         '</div>'+
-        (wn?('<div onclick="wlEdit(\''+k+'\')" style="margin:0 0 3px '+L+'px; font-size:11px; color:var(--sub); cursor:pointer">✎ '+dEsc(wn)+'</div>'):'')+
+        (wn?('<div onclick="wlEdit(\''+k+'\')" style="margin:0 0 3px '+L+'px; font-size:11px; color:var(--sub); cursor:pointer; text-align:right">✎ '+dEsc(wn)+'</div>'):'')+
         (window._wlEdit===k?('<div style="margin:2px 6px 8px">'+wlEditHtml(k,rec)+'</div>'):'')+
       '</div>';
     });
