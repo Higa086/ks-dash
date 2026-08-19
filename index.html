@@ -342,7 +342,7 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <div class="small" style="margin-top:6px">再開回数 = 漫画をやらなかった日から復帰した回数（宣言した休みはノーカン）</div>
   </div>
   <div class="card">
-    <h2>ページ数 <span class="small">本編+リテイク−ボツ／<span style="color:#e08a3f">橙数字=ネーム(別集計)</span></span></h2>
+    <h2>ページ数 <span class="small">下段=本編+リテイク−ボツ／<span style="color:#e08a3f">上段(橙)=ネーム(累計と別)</span></span></h2>
     <div class="modes" id="pgPeriodChips" style="margin-bottom:6px"></div>
     <div class="mchart" id="mChart" style="height:100px"></div>
     <div class="small" id="mChartNote" style="margin-top:8px"></div>
@@ -379,7 +379,7 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
       <b id="wlRangeLbl" style="font-size:13px">—</b>
       <button class="navbtn" onclick="wlMove(1)">›</button>
     </div>
-    <table id="workLog"></table>
+    <div id="workLog" style="margin-top:2px"></div>
   </div>
   <div class="card">
     <h2>体調</h2>
@@ -1500,35 +1500,8 @@ function mangaMsOf(k){ const rec=DB.days[k]; if(!rec) return 0;
   const cc=catCalc(rec,k); let s=0;
   MANGA_CATS.forEach(id=>{ s+=cc.perCat[id]||0; }); return s; }
 function catMove(n){ if((window._catView||'day')==='all') return; keepScroll(()=>{ window._catOff=Math.max(0,(window._catOff||0)-n); window._catPick=null; renderStats(); }); }
-function wnCell(k,rec){
-  const v=(rec&&rec.wn)||'';
-  return '<td class="wn" data-k="'+k+'" style="cursor:text; color:'+(v?'var(--ink)':'var(--sub)')+'; font-size:11.5px; word-break:break-word">'+
-    (v? dEsc(v) : '＋')+'</td>';
-}
-function wnEdit(td){
-  if(td.querySelector('input')) return;
-  const k=td.dataset.k;
-  const cur=((DB.days[k]||{}).wn)||'';
-  td.innerHTML='';
-  const inp=document.createElement('input');
-  inp.type='text'; inp.value=cur; inp.placeholder='例: 通院で中断';
-  inp.style.cssText='width:100%; margin:0; padding:4px 6px; font-size:11.5px;';
-  td.appendChild(inp);
-  inp.focus();
-  let done=false;
-  const fin=()=>{
-    if(done) return; done=true;
-    const v=inp.value.trim();
-    if(v!==cur){ const r=day(k); if(v) r.wn=v; else delete r.wn; touch(r); save(); }
-    keepScroll(()=>renderStats());
-  };
-  inp.onblur=fin;
-  inp.onkeydown=(e)=>{ if(e.key==='Enter'){ e.preventDefault(); inp.blur(); }
-    if(e.key==='Escape'){ done=true; keepScroll(()=>renderStats()); } };
-}
 function wlMove(n){ keepScroll(()=>{ window._wlOff=Math.max(0,(window._wlOff||0)-n); renderStats(); }); }
 // ===== 勤務ログ バーチャート＋打刻編集 =====
-const WL_H0=6, WL_H1=26; // 表示レンジ 6:00〜26:00
 function wlSegs(k,rec){
   const evs=(rec&&rec.work&&rec.work.ev)||[]; if(!evs.length) return [];
   const segs=[]; let curW=null, curB=null;
@@ -1540,31 +1513,6 @@ function wlSegs(k,rec){
   const now=(k===todayKey())?Date.now():null;
   if(now){ if(curW!=null) segs.push(['w',curW,now]); if(curB!=null) segs.push(['b',curB,now]); }
   return segs;
-}
-function wlScaleRow(){
-  let ticks='';
-  for(let h=WL_H0;h<=24;h+=3){
-    const x=(h-WL_H0)/(WL_H1-WL_H0)*100;
-    ticks+='<span style="position:absolute; left:'+x.toFixed(1)+'%; transform:translateX(-50%); font-size:9px; color:var(--sub)">'+h+'</span>';
-  }
-  return '<tr><td colspan="6" style="padding:5px 6px 1px; border-bottom:none"><div style="display:flex; align-items:center; gap:6px"><div style="flex:1; position:relative; height:12px">'+ticks+'</div><span style="width:30px; flex:none"></span></div></td></tr>';
-}
-function wlBarHtml(k,rec){
-  const day0=new Date(k+'T00:00:00').getTime();
-  const lo=day0+WL_H0*3600000, span=(WL_H1-WL_H0)*3600000;
-  let grid='';
-  for(let h=WL_H0+3;h<=24;h+=3){
-    grid+='<div style="position:absolute; left:'+(((h-WL_H0)/(WL_H1-WL_H0))*100).toFixed(1)+'%; top:0; bottom:0; width:1px; background:var(--line)"></div>';
-  }
-  let bars='';
-  wlSegs(k,rec).forEach(([ty,s,e])=>{
-    const x0=Math.max(0,(s-lo)/span*100), x1=Math.min(100,(e-lo)/span*100);
-    if(x1<=x0) return;
-    bars+='<div style="position:absolute; left:'+x0.toFixed(2)+'%; width:'+Math.max(0.5,(x1-x0)).toFixed(2)+'%; top:1px; bottom:1px; border-radius:3px; background:'+(ty==='w'?'#3b6fb5':'#e0a52d')+'" title="'+(ty==='w'?'業務':'休憩')+' '+fmtTime(s)+'〜'+fmtTime(e)+'"></div>';
-  });
-  return '<div style="display:flex; align-items:center; gap:6px">'+
-    '<div style="flex:1; position:relative; height:13px; background:var(--bg); border:1px solid var(--line); border-radius:4px; overflow:hidden">'+grid+bars+'</div>'+
-    '<button class="navbtn" style="width:30px; flex:none; padding:1px 0; font-size:11px" title="打刻を修正" onclick="wlEdit(\''+k+'\')">✎</button></div>';
 }
 const WL_TYPES=[['start','開始'],['break','休憩'],['resume','再開'],['end','終了']];
 function wlHM(day0,at){ const min=Math.round((at-day0)/60000); const h=Math.floor(min/60), m=min%60;
@@ -1579,16 +1527,26 @@ function wlEvRowHtml(ty,tv){
 function wlEditHtml(k,rec){
   const day0=new Date(k+'T00:00:00').getTime();
   const evs=(rec&&rec.work&&rec.work.ev)||[];
-  return '<div id="wlEd" data-k="'+k+'" style="background:var(--bg); border:1px solid var(--line); border-radius:10px; padding:8px 10px">'+
+  const hasRec=rec&&((rec.work&&rec.work.ev&&rec.work.ev.length)||rec.workAdj);
+  const wc=hasRec?dayWC(rec,k):null;
+  const first=evs.length?fmtTime(evs[0][1]):'—';
+  let endTs=null; evs.forEach(ev=>{ if(ev[0]==='end') endTs=ev[1]; });
+  const endTxt=endTs?fmtTime(endTs):(evs.length?(k===todayKey()?'記録中':'自動終了'):'—');
+  const wnv=dEsc((rec&&rec.wn)||'').replace(/"/g,'&quot;');
+  return '<div id="wlEd" data-k="'+k+'" onclick="event.stopPropagation()" style="background:var(--card); border:1px solid var(--line); border-radius:10px; padding:8px 10px; box-shadow:0 2px 8px rgba(0,0,0,.06)">'+
+    '<div class="small" style="margin-bottom:4px">開始 <b>'+first+'</b>　終了 <b>'+endTxt+'</b>'+(wc?('　休憩 <b>'+(fmtH(wc.breakMs)||'0')+'</b>　実働 <b>'+(fmtH(wc.workMs)||'0')+'</b>'):'')+'</div>'+
+    '<div style="display:flex; align-items:center; gap:6px; margin-bottom:6px"><span class="small" style="flex:none">備考</span><input type="text" id="wlWn" value="'+wnv+'" placeholder="例: 通院で中断" style="margin:0; padding:4px 8px; font-size:12px" onchange="wlWnSave(\''+k+'\',this.value)"></div>'+
+    '<div class="small" style="margin:2px 0">打刻の修正（HH:MM。深夜0時以降は 24:30 のように24以上で）</div>'+
     '<div id="wlEdRows">'+evs.map(e=>wlEvRowHtml(e[0], wlHM(day0,e[1]))).join('')+'</div>'+
     '<div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:6px">'+
       '<button class="btn ghost" style="margin:0; padding:6px 12px" onclick="wlAddEv()">＋ 打刻を追加</button>'+
-      '<button class="btn" style="margin:0; padding:6px 14px" onclick="wlSaveEv()">保存</button>'+
-      '<button class="btn ghost" style="margin:0; padding:6px 12px" onclick="wlEdit(\''+k+'\')">キャンセル</button></div>'+
-    '<div class="small" style="margin-top:6px">時刻は HH:MM（例 9:30）。深夜0時以降は 24:30 のように24以上で。保存すると実働・休憩を打刻から再計算します。</div></div>';
+      '<button class="btn" style="margin:0; padding:6px 14px" onclick="wlSaveEv()">打刻を保存</button>'+
+      '<button class="btn ghost" style="margin:0; padding:6px 12px" onclick="wlEdit(\''+k+'\')">閉じる</button></div>'+
+  '</div>';
 }
+function wlWnSave(k,v){ const r=day(k); v=String(v).trim(); if(v) r.wn=v; else delete r.wn; touch(r); save(); }
 function wlAddEv(){ const rows=document.getElementById('wlEdRows'); if(!rows) return;
-  rows.insertAdjacentHTML('beforeend', wlEvRowHtml('end',''));
+  rows.insertAdjacentHTML('beforeend', wlEvRowHtml(rows.children.length?'end':'start',''));
   const inps=rows.querySelectorAll('input'); if(inps.length) inps[inps.length-1].focus(); }
 function wlSaveEv(){
   const box=document.getElementById('wlEd'); if(!box) return;
@@ -1717,12 +1675,18 @@ function renderStats(){
     { const tv=items.reduce((s,x)=>s+x.v,0), tn=items.reduce((s,x)=>s+(x.n||0),0);
       const nt=document.getElementById('mChartNote');
       if(nt) nt.innerHTML='この期間: 本編 <b>'+fmtP(tv)+'P</b> ／ ネーム <b style="color:#e08a3f">'+fmtP(tn)+'P</b>（累計とは別集計）'; }
-    const mx=Math.max(1,...items.map(x=>x.v));
+    const mx=Math.max(1,...items.map(x=>Math.max(0,x.v)+(x.n||0)));
     mc.style.gap=items.length>12?'2px':'6px';
     addYAxis(mc, mx, v=>((v%1)?v.toFixed(1):v)+'P', 91, 24);
     items.forEach(it=>{
       const el=document.createElement('div'); el.className='mb';
-      el.innerHTML='<div class="mv" style="height:24px; line-height:1.2; overflow:visible;'+(items.length>10?' font-size:8.5px; letter-spacing:-0.3px;':' font-size:9.5px;')+'">'+(it.v?fmtP(it.v):'')+'<br><span style="color:#e08a3f">'+(it.n?fmtP(it.n):'')+'</span></div><div class="bararea"><div style="height:'+Math.round(Math.max(0,it.v)/mx*100)+'%" title="'+(it.t||'')+' '+fmtP(it.v)+'P"></div></div><div class="ml ml2" style="font-size:8.5px">'+it.label+'</div>';
+      const hv=Math.round(Math.max(0,it.v)/mx*100), hn=Math.round((it.n||0)/mx*100);
+      el.innerHTML='<div class="mv" style="height:24px; line-height:1.2; overflow:visible;'+(items.length>10?' font-size:8.5px; letter-spacing:-0.3px;':' font-size:9.5px;')+'">'+(it.v?fmtP(it.v):'')+'<br><span style="color:#e08a3f">'+(it.n?fmtP(it.n):'')+'</span></div>'+
+        '<div class="bararea" style="gap:0" title="'+(it.t||'')+' 本編'+fmtP(Math.max(0,it.v))+'P / ネーム'+fmtP(it.n||0)+'P">'+
+          '<div style="height:'+hn+'%; background:#e08a3f; border-radius:'+(hn>0?'4px 4px 0 0':'0')+(hn===0?'; min-height:0':'')+'"></div>'+
+          '<div style="height:'+hv+'%; background:#33608d; border-radius:'+(hn>0?'0':'4px 4px 0 0')+(hv===0?'; min-height:0':'')+'"></div>'+
+        '</div>'+
+        '<div class="ml ml2" style="font-size:8.5px">'+it.label+'</div>';
       mc.appendChild(el);
     });
   }
@@ -1779,50 +1743,65 @@ function renderStats(){
       wc1.appendChild(el);
     });
   }
-  // work log (14 days, navigable, zero days shown, weekend/holiday colored)
+  // work log (14 days, TeamSpirit型: 1日1行・共通時間軸・全行貫通グリッド線)
   const lg=document.getElementById('workLog');
   if(lg){
-    if(!lg.dataset.wnBound){ lg.dataset.wnBound='1';
-      lg.addEventListener('click', e=>{ const td=e.target.closest && e.target.closest('td.wn'); if(td) wnEdit(td); }); }
     const off=window._wlOff||0;
     const end=new Date(); end.setDate(end.getDate()-14*off);
     const start=new Date(end); start.setDate(end.getDate()-13);
     const rl=document.getElementById('wlRangeLbl');
     if(rl) rl.textContent=(start.getMonth()+1)+'/'+start.getDate()+'〜'+(end.getMonth()+1)+'/'+end.getDate();
-    lg.innerHTML='<tr><th>日付</th><th>開始</th><th>終了</th><th>休憩</th><th>実働</th><th style="min-width:80px">備考</th></tr>'+wlScaleRow();
+    // 14日分を集めて時間軸レンジを決める（既定 9〜22時、記録に合わせて拡張）
+    const days14=[]; let minH=9, maxH=22;
     for(let i=0;i<=13;i++){
       const dt=new Date(end); dt.setDate(end.getDate()-i); const k=todayKey(dt);
       const rec=DB.days[k];
-      const c=dayColor(dt,k);
-      const dcell='<td'+(c?' style="color:'+c+'; font-weight:700"':'')+'>'+(dt.getMonth()+1)+'/'+dt.getDate()+'('+['日','月','火','水','木','金','土'][dt.getDay()]+')</td>';
-      const evs=(rec&&rec.work&&rec.work.ev)||[];
-      const tr=document.createElement('tr');
-      if(!evs.length && !(rec&&rec.workAdj)){
-        tr.innerHTML=dcell+'<td>—</td><td>—</td><td>0</td><td>0</td>'+wnCell(k,rec);
-        tr.style.color='var(--sub)';
-        lg.appendChild(tr); continue;
-      }
-      const wc=dayWC(rec,k);
-      if(!evs.length){
-        tr.innerHTML=dcell+'<td>—</td><td>手動</td><td>'+(fmtH(wc.breakMs)||'0')+'</td><td><b>'+(fmtH(wc.workMs)||'0')+'</b></td>'+wnCell(k,rec);
-        lg.appendChild(tr); continue;
-      }
-      const first=evs[0][1];
-      let endTs=null; evs.forEach(ev=>{ if(ev[0]==='end') endTs=ev[1]; });
-      const isTodayRow=(k===tk);
-      const endTxt=(isTodayRow&&wc.st==='working')?'🟢勤務中':(isTodayRow&&wc.st==='break')?'☕休憩中': endTs?fmtTime(endTs):'自動終了';
-      tr.innerHTML=dcell+'<td>'+fmtTime(first)+'</td><td>'+endTxt+'</td><td>'+(fmtH(wc.breakMs)||'0')+'</td><td><b>'+(fmtH(wc.workMs)||'0')+'</b></td>'+wnCell(k,rec);
-      lg.appendChild(tr);
-      tr.querySelectorAll('td').forEach(td=>{ td.style.borderBottom='none'; td.style.paddingBottom='2px'; });
-      const br=document.createElement('tr');
-      br.innerHTML='<td colspan="6" style="padding:0 6px 7px'+(window._wlEdit===k?'; border-bottom:none':'')+'">'+wlBarHtml(k,rec)+'</td>';
-      lg.appendChild(br);
-      if(window._wlEdit===k){
-        const er=document.createElement('tr');
-        er.innerHTML='<td colspan="6" style="padding:2px 6px 10px">'+wlEditHtml(k,rec)+'</td>';
-        lg.appendChild(er);
-      }
+      const day0=new Date(k+'T00:00:00').getTime();
+      const segs=wlSegs(k,rec);
+      segs.forEach(sg=>{ minH=Math.min(minH,(sg[1]-day0)/3600000); maxH=Math.max(maxH,(sg[2]-day0)/3600000); });
+      days14.push({k,dt,rec,segs,day0});
     }
+    const lo=Math.max(0,Math.floor(minH)), hi=Math.min(30,Math.ceil(maxH));
+    const L=62, R=52; // レーン左右の列幅+すき間(px)
+    const pct=h=>((h-lo)/(hi-lo)*100);
+    let ticks='', glines='';
+    for(let h=Math.ceil(lo/3)*3; h<=hi; h+=3){
+      ticks+='<span style="position:absolute; left:'+pct(h).toFixed(1)+'%; transform:translateX(-50%); font-size:9.5px; color:var(--sub)">'+h+'</span>';
+      glines+='<div style="position:absolute; left:'+pct(h).toFixed(1)+'%; top:0; bottom:0; width:1px; background:var(--line)"></div>';
+    }
+    const axis='<div style="position:relative; height:15px; margin:0 '+R+'px 0 '+L+'px">'+ticks+'</div>';
+    let html='<div class="small" style="margin-bottom:4px"><span style="display:inline-block; width:10px; height:10px; background:#3b6fb5; border-radius:2px; vertical-align:-1px"></span> 業務　<span style="display:inline-block; width:10px; height:10px; background:#e0a52d; border-radius:2px; vertical-align:-1px"></span> 休憩　<span style="color:var(--sub)">数字=時（24以降は深夜）・行をタップで詳細・打刻修正</span></div>';
+    html+=axis;
+    html+='<div style="position:relative">';
+    html+='<div style="position:absolute; top:0; bottom:0; left:'+L+'px; right:'+R+'px; pointer-events:none">'+glines+'</div>';
+    days14.forEach(rw=>{
+      const {k,dt,rec,segs,day0}=rw;
+      const c=dayColor(dt,k);
+      const hasRec=rec&&((rec.work&&rec.work.ev&&rec.work.ev.length)||rec.workAdj);
+      const wc=hasRec?dayWC(rec,k):null;
+      const isT=(k===tk);
+      let bars='';
+      segs.forEach(([ty,s,e])=>{
+        const x0=Math.max(0,pct((s-day0)/3600000)), x1=Math.min(100,pct((e-day0)/3600000));
+        if(x1<=x0) return;
+        bars+='<div style="position:absolute; left:'+x0.toFixed(2)+'%; width:'+(x1-x0).toFixed(2)+'%; top:0; bottom:0; background:'+(ty==='w'?'#3b6fb5':'#e0a52d')+'" title="'+(ty==='w'?'業務':'休憩')+' '+fmtTime(s)+'〜'+fmtTime(e)+'"></div>';
+      });
+      if(!segs.length && wc) bars='<div style="position:absolute; left:4px; top:0; font-size:9.5px; color:var(--sub); line-height:17px">手動入力</div>';
+      let sub='';
+      if(isT&&wc&&wc.st==='working') sub='🟢勤務中';
+      else if(isT&&wc&&wc.st==='break') sub='☕休憩中';
+      else if(wc) sub='休'+(fmtH(wc.breakMs)||'0');
+      html+='<div onclick="wlEdit(\''+k+'\')" style="position:relative; display:flex; align-items:center; gap:6px; padding:2.5px 0; cursor:pointer'+(window._wlEdit===k?'; background:var(--gold)':'')+'">'+
+        '<div style="width:'+(L-6)+'px; flex:none; font-size:11.5px;'+(c?' color:'+c+'; font-weight:700':'')+(!hasRec?'; opacity:.45':'')+'">'+(dt.getMonth()+1)+'/'+dt.getDate()+'('+'日月火水木金土'[dt.getDay()]+')</div>'+
+        '<div style="flex:1; position:relative; height:17px">'+bars+'</div>'+
+        '<div style="width:'+(R-6)+'px; flex:none; text-align:right; line-height:1.15">'+(wc?('<b style="font-size:12.5px">'+(fmtH(wc.workMs)||'0')+'</b><div style="font-size:9px; color:var(--sub); white-space:nowrap">'+sub+'</div>'):'<span style="color:var(--dim)">—</span>')+'</div>'+
+      '</div>';
+      const wn=(rec&&rec.wn)||'';
+      if(wn) html+='<div onclick="wlEdit(\''+k+'\')" style="position:relative; margin:-2px 0 2px '+L+'px; font-size:11px; color:var(--sub); cursor:pointer">✎ '+dEsc(wn)+'</div>';
+      if(window._wlEdit===k) html+='<div style="position:relative; margin:2px 0 8px">'+wlEditHtml(k,rec)+'</div>';
+    });
+    html+='</div>'+axis;
+    lg.innerHTML=html;
   }
   // time usage (day/week/month/all + arrows)
   const catRowsEl=document.getElementById('catRows');
