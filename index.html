@@ -2275,14 +2275,27 @@ function rtGet(el){
 function rtFire(el){ if(el) el.dispatchEvent(new Event('input',{bubbles:true})); }
 function rtLineOf(el){
   const sel=window.getSelection(); if(!sel.rangeCount) return null;
-  let n=sel.getRangeAt(0).startContainer;
+  const rg=sel.getRangeAt(0);
+  let n=rg.startContainer;
   while(n && n.parentNode && n.parentNode!==el) n=n.parentNode;
   if(!n || n.parentNode!==el) return null;
-  if(n.nodeType===3){ const d=document.createElement('div'); el.replaceChild(d,n); d.appendChild(n); n=d; }
+  if(n.nodeType===3){
+    // 素のテキストノードを行divに包む。カーソル位置は復元する（スマホでのカーソル飛び防止）
+    const off=(rg.startContainer===n)?rg.startOffset:null;
+    const d=document.createElement('div'); el.replaceChild(d,n); d.appendChild(n);
+    if(off!=null){ try{ const r2=document.createRange(); r2.setStart(n,Math.min(off,n.length)); r2.collapse(true);
+      sel.removeAllRanges(); sel.addRange(r2); }catch(e){} }
+    n=d;
+  }
   return n;
 }
+// 日本語入力(IME)の変換中はDOMを触らない（スマホで入力が壊れるため）
+let RT_IME=false;
+document.addEventListener('compositionstart', ()=>{ RT_IME=true; }, true);
+document.addEventListener('compositionend', (e)=>{ RT_IME=false;
+  const t=e.target; if(t && t.isContentEditable){ try{ rtNormalize(t); }catch(_){} } }, true);
 function rtNormalize(el){
-  if(!el) return;
+  if(!el || RT_IME) return;
   const line=rtLineOf(el);
   if(line && line.nodeType===1 && line.style && (line.style.fontSize||line.style.fontWeight)){
     if(!(line.textContent||'').trim()){ line.style.fontSize=''; line.style.fontWeight=''; }
@@ -2334,11 +2347,13 @@ function rtHead(id,big){
   rtFire(el);
 }
 function rtBar(id){
+  // onmousedown/ontouchendのpreventDefaultで、ボタンタップ時に編集エリアのフォーカスと選択を奪わない（スマホ対応）
+  const pd=' onmousedown="event.preventDefault()" ontouchend="event.preventDefault(); this.click()"';
   return '<div style="display:flex; gap:6px; margin-bottom:5px; flex-wrap:wrap">'+
-    '<button class="navbtn" style="font-weight:800; padding:0 12px; height:30px" onclick="rtBold(\'' +id+ '\')">B</button>'+
-    '<button class="navbtn" style="padding:0 10px; height:30px; font-size:14px" onclick="rtHead(\'' +id+ '\',1)">大</button>'+
-    '<button class="navbtn" style="padding:0 10px; height:30px; font-size:12.5px" onclick="rtHead(\'' +id+ '\',0)">中</button>'+
-    '<button class="navbtn" style="padding:0 10px; height:30px; font-size:11.5px" onclick="rtClear(\'' +id+ '\')" title="この行の書式を消す">書式クリア</button></div>';
+    '<button class="navbtn" style="font-weight:800; padding:0 12px; height:30px"'+pd+' onclick="rtBold(\'' +id+ '\')">B</button>'+
+    '<button class="navbtn" style="padding:0 10px; height:30px; font-size:14px"'+pd+' onclick="rtHead(\'' +id+ '\',1)">大</button>'+
+    '<button class="navbtn" style="padding:0 10px; height:30px; font-size:12.5px"'+pd+' onclick="rtHead(\'' +id+ '\',0)">中</button>'+
+    '<button class="navbtn" style="padding:0 10px; height:30px; font-size:11.5px"'+pd+' onclick="rtClear(\'' +id+ '\')" title="この行の書式を消す">書式クリア</button></div>';
 }
 function diMergeMonth(store,ym,remote){ const loc=store[ym]=store[ym]||{}; let ch=false;
   Object.keys(remote||{}).forEach(k=>{ const l=loc[k], r=remote[k];
@@ -2434,10 +2449,15 @@ function saveDiaryText(){
   const k=diOpen; if(!k) return; const ym=k.slice(0,7);
   const mon=DJ.d[ym]=DJ.d[ym]||{};
   const prev=mon[k]||{};
-  const t=rtGet(document.getElementById('diaryText'));
-  if(t===(prev.t||'')) return;
+  const ta=document.getElementById('diaryText');
+  const editing=(document.activeElement===ta);
+  const t=rtGet(ta);
+  if(t===(prev.t||'')){ if(!editing){ drawDiaryList(); drawTimeline(); } return; }
   mon[k]={t, u:Date.now(), phc:prev.phc||0};
-  DJ.dirty['d/'+ym+'/'+k]=1; dsave(); drawDiaryList(); drawTimeline(); flushDiaryDirty();
+  DJ.dirty['d/'+ym+'/'+k]=1; dsave();
+  // 入力中は一覧・タイムラインを再描画しない（スマホでの画面ガタつき防止）。blur時にまとめて描画
+  if(!editing){ drawDiaryList(); drawTimeline(); }
+  flushDiaryDirty();
 }
 async function addDiaryPhoto(inp){
   const f=inp.files&&inp.files[0]; inp.value=''; if(!f||!diOpen) return;
