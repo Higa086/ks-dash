@@ -184,17 +184,12 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
 
 <!-- ============ 今日 ============ -->
 <div class="page on" id="page-today">
-  <div class="card" style="padding:10px 14px">
-    <div style="font-weight:700; font-size:13.5px">【三箇条】　時給1万円 ・ 目標1つ ・ 主観の復権</div>
-  </div>
   <div id="teireiBanner"></div>
   <div class="small" id="judgeLine" style="text-align:right; margin:0 2px 4px; color:var(--sub)"></div>
   <div class="card">
-    <h2>今日のモード宣言 <span class="small">(宣言した休みはサボりではなく計画)</span></h2>
-    <div class="modes" id="modeChips"></div>
-  </div>
-  <div class="card">
     <h2>勤務レポート</h2>
+    <div class="modes" id="modeChips"></div>
+    <div class="small" style="margin:2px 0 8px">今日のモード宣言（宣言した休みはサボりではなく計画）</div>
     <div style="display:flex; gap:8px; flex-wrap:wrap;" id="workBtns"></div>
     <div style="margin-top:8px"><b id="workStatus">未開始</b></div>
     <div class="small" id="workSummary"></div>
@@ -239,6 +234,14 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <h2>1日の型 <span class="small" id="tlNote"></span></h2>
     <div class="tl" id="timeline"></div>
     <div class="small" style="margin-top:7px">※漫画・マーケ以外の作業は1日2h未満。収まらない分はまとめて処理を工夫。本業6h超の日は2h以上でもOK</div>
+  </div>
+  <div class="card">
+    <div style="font-weight:700; font-size:14px">行動原則3箇条</div>
+    <div style="font-size:13.5px; font-weight:700; line-height:2; margin-top:2px">
+      ・主観の復権<br>
+      ・目標1本<br>
+      ・時給1万
+    </div>
   </div>
   <div class="card">
     <div class="small" style="font-weight:700" id="h20Head">習慣</div>
@@ -790,11 +793,10 @@ const CAT_UNK={id:'unk', label:'未分類', color:'#b7b3a8'};
 function catLabel(id){ const c=CATS_ALL.concat([CAT_UNK]).find(x=>x.id===id); return c?c.label:id; }
 const MODES=[
  {id:'normal', label:'通常日'},
- {id:'short',  label:'短縮日'},
- {id:'half',   label:'半日版'},
  {id:'off',    label:'休日'},
  {id:'sick',   label:'休養日'},
 ];
+// 短縮日(short)・半日版(half)は2026-08-29に選択肢から廃止。過去データ表示用にVICTORY/CUTには残す
 const VICTORY={
  normal:{t:'今日の勝利条件',d:'10:00に机に座る。漫画に触る（1P・生成10回・ネーム1コマでも○）。完成度は不問、座ることが勝利。'},
  short:{t:'短縮日の勝利条件',d:'14:00からの漫画ブロックに1.5hだけ入る。夕方に運動を入れて今夜の入眠を立て直す。最低ライン: 漫画に5分。'},
