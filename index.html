@@ -650,7 +650,7 @@ function payload(){
 }
 function schedulePush(){ if(!syncCfg()) return;
   clearTimeout(pushTimer); pushTimer=setTimeout(pushNow, 700); }
-let lastRemoteT=0;
+let lastRemoteT=0, LAST_SYNC=0;
 async function pushNow(){
   const url=syncUrl(); if(!url) return;
   // 送信前チェック: サーバーの更新時刻(数十バイト)だけ先に確認
@@ -676,6 +676,16 @@ function mergeEv(a,b){
   out.sort((x,y)=>x[1]-y[1]);
   return out;
 }
+// 「終了」の後に開始/再開なしで続く2個目以降の「終了」を除去（古い端末の自動終了3:00が混ざるのを防ぐ。実働は変わらない）
+function dedupEnds(ev){
+  const out=[]; let done=false;
+  (ev||[]).forEach(e=>{
+    if(e[0]==='end'){ if(done) return; done=true; }
+    else if(e[0]==='start'||e[0]==='resume') done=false;
+    out.push(e);
+  });
+  return out;
+}
 function mergeDay(l,r){
   if(!l) return r; if(!r) return l;
   const newer=((r.u||0)>(l.u||0))?r:l, older=(newer===r)?l:r;
@@ -689,7 +699,7 @@ function mergeDay(l,r){
     out.evm=Math.max(le,re);
   } else {
     const lw=(l.work&&l.work.ev)||[], rw=(r.work&&r.work.ev)||[];
-    if(lw.length||rw.length) out.work={ev:mergeEv(lw,rw)};
+    if(lw.length||rw.length) out.work={ev:dedupEnds(mergeEv(lw,rw))};
   }
   const lc=(l.cat&&l.cat.ev)||[], rc=(r.cat&&r.cat.ev)||[];
   if(lc.length||rc.length) out.cat={ev:mergeEv(lc,rc)};
@@ -728,7 +738,7 @@ function mergeRemote(rm){
 }
 async function fetchAndMerge(){
   const url=syncUrl(); if(!url) return;
-  try{ const r=await fetch(url,{cache:'no-store'}); if(r.ok){ const d=await r.json(); mergeRemote(d); if(d&&d.t) lastRemoteT=d.t; setDot('on','同期中'); pushNow(); } }
+  try{ const r=await fetch(url,{cache:'no-store'}); if(r.ok){ const d=await r.json(); mergeRemote(d); if(d&&d.t) lastRemoteT=d.t; LAST_SYNC=Date.now(); setDot('on','同期中'); pushNow(); } }
   catch(e){ setDot('err','オフライン'); }
 }
 function startStream(){
@@ -738,13 +748,13 @@ function startStream(){
     ES=new EventSource(url);
     ES.addEventListener('put', e=>{
       try{ const m=JSON.parse(e.data);
-        if(m.path==='/' ){ if(m.data && m.data.from!==DEV) mergeRemote(m.data); if(m.data&&m.data.t) lastRemoteT=m.data.t; if(m.data) setDot('on','同期中'); }
+        if(m.path==='/' ){ if(m.data && m.data.from!==DEV) mergeRemote(m.data); if(m.data&&m.data.t) lastRemoteT=m.data.t; if(m.data){ LAST_SYNC=Date.now(); setDot('on','同期中'); } }
         else fetchAndMerge();
       }catch(err){}
     });
     ES.addEventListener('patch', e=>{
       try{ const m=JSON.parse(e.data);
-        if(m.path==='/' && m.data){ if(m.data.from!==DEV) mergeRemote(m.data); if(m.data.t) lastRemoteT=m.data.t; setDot('on','同期中'); }
+        if(m.path==='/' && m.data){ if(m.data.from!==DEV) mergeRemote(m.data); if(m.data.t) lastRemoteT=m.data.t; LAST_SYNC=Date.now(); setDot('on','同期中'); }
         else fetchAndMerge();
       }catch(err){ fetchAndMerge(); }
     });
@@ -1126,7 +1136,20 @@ function catAdd(id){ const d=day(); if(!d.cat) d.cat={ev:[]};
   d.cat.ev.push([id, Date.now()]); touch(d); save(); renderToday();
   toast('「'+catLabel(id)+'」に切替'); }
 function repairWork(){
+  // 同期ありの端末は、直近2分以内にサーバーと同期できている時だけ自動終了する
+  // （古いデータのまま3:00で締めて、実際の「業務終了」を上書き表示してしまう不具合の対策）
+  if(syncCfg() && Date.now()-LAST_SYNC>120000){
+    fetchAndMerge().then(()=>{ if(Date.now()-LAST_SYNC<=120000) repairWorkCore(); });
+    return;
+  }
+  repairWorkCore();
+}
+function repairWorkCore(){
   let changed=false, fixed=0;
+  // 既存データの重複「終了」を掃除（実働は変わらない）
+  Object.keys(DB.days).forEach(k=>{ const r=DB.days[k];
+    if(r&&r.work&&r.work.ev&&r.work.ev.length){ const c=dedupEnds(r.work.ev);
+      if(c.length!==r.work.ev.length){ r.work.ev=c; r.u=Date.now(); changed=true; } } });
   for(let i=1;i<=8;i++){
     const dt=logicalNow(); dt.setDate(dt.getDate()-i);
     const k=todayKey(dt); const rec=DB.days[k];
