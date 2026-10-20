@@ -793,6 +793,7 @@ const CATS=[
  {id:'research',label:'リサーチ',         color:'#33608d'},
  {id:'promo',   label:'集客(X/pixiv)',    color:'#7c3aed'},
  {id:'study',   label:'学習・思考整理',    color:'#2f8f8f'},
+ {id:'honbiz',  label:'本業業務',         color:'#5b6b8c'},
  {id:'biz',     label:'管理・事務',       color:'#3d7a4f'},
  {id:'env',     label:'開発',            color:'#8a867c'},
 ];
@@ -1583,7 +1584,7 @@ function dayColor(dt,k){ if(JP_HOLIDAYS.has(k)||dt.getDay()===0) return '#cf5045
 function dayLbl(dt,withMonth){ const k=todayKey(dt); const c=dayColor(dt,k);
   const d=(withMonth?(dt.getMonth()+1)+'/':'')+dt.getDate();
   return '<span style="line-height:1.15; display:inline-block;'+(c?' color:'+c:'')+'">'+d+'<br>'+'日月火水木金土'[dt.getDay()]+'</span>'; }
-const CAT_SHORT={honpen:'本編',name:'ネーム',package:'サムネ',research:'リサーチ',promo:'集客',study:'学習',biz:'管理',side:'副業',env:'開発',unk:'未分類'};
+const CAT_SHORT={honpen:'本編',name:'ネーム',package:'サムネ',research:'リサーチ',promo:'集客',study:'学習',honbiz:'本業',biz:'管理',side:'副業',env:'開発',unk:'未分類'};
 const MANGA_CATS=['honpen','name','package','research','promo'];
 function mangaMsOf(k){ const rec=DB.days[k]; if(!rec) return 0;
   const cc=catCalc(rec,k); let s=0;
@@ -2017,7 +2018,7 @@ function renderStats(){
       };
       mkRow('漫画（本編+ネーム+サムネ）', gMan, '#c05621');
       mkRow('マーケ（リサーチ+集客）', gMkt, '#33608d');
-      mkRow('他（管理・学習・開発ほか）', gOth, '#8a867c');
+      mkRow('他（本業・管理・学習・開発ほか）', gOth, '#8a867c');
       const sm=document.createElement('div'); sm.className='small'; sm.style.marginTop='6px'; sm.style.textAlign='right';
       sm.innerHTML='漫画作業（漫画+マーケ）<b style="color:#c05621">'+(fmtH(gMan+gMkt)||'0')+'</b>'+(ctot?'（'+Math.round((gMan+gMkt)/ctot*100)+'%）':'')+
         '　／　合計 <b>100%</b>・<b style="font-size:14px">'+(fmtH(ctot)||'0')+'</b>';
