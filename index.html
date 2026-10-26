@@ -1700,11 +1700,21 @@ function wlBarSegs(k,rec,day0,pct){
       return;
     }
     const pts=[s0].concat(ce.map(x=>x[1]).filter(t=>t>s0&&t<e0)).concat([e0]);
+    const pcs=[];
     for(let i=0;i<pts.length-1;i++){
-      const id=act(pts[i]); const c=all.find(x=>x.id===id);
-      const a=Math.max(0,X(pts[i])), b=Math.min(100,X(pts[i+1])); if(b<=a) continue;
-      h+='<div style="position:absolute; left:'+a.toFixed(2)+'%; width:'+(b-a).toFixed(2)+'%; top:0; bottom:0; background:'+(c?c.color:'#b7b3a8')+'" title="'+(c?c.label:id)+' '+fmtTime(pts[i])+'〜'+fmtTime(pts[i+1])+'"></div>';
+      const id=act(pts[i]); const lp=pcs[pcs.length-1];
+      if(lp && lp[0]===id && lp[2]===pts[i]) lp[2]=pts[i+1]; else pcs.push([id,pts[i],pts[i+1]]);
     }
+    pcs.forEach(([id,ps,pe])=>{
+      const c=all.find(x=>x.id===id);
+      const a=Math.max(0,X(ps)), b=Math.min(100,X(pe)); if(b<=a) return;
+      const w=b-a, nm=CAT_SHORT[id]||(c?c.label:id), dur=fmtH(pe-ps)||'';
+      // 「時間の使い方」と同じく、狭い区間は文字を省く（広ければ名前＋時間、中くらいは名前だけ）
+      const need=nm.length*(/^[\x00-\x7f]+$/.test(nm)?2.6:4.6)+2;
+      const lbl= w>=need+12 ? nm+' '+dur : (w>=need ? nm : '');
+      h+='<div style="position:absolute; left:'+a.toFixed(2)+'%; width:'+w.toFixed(2)+'%; top:0; bottom:0; background:'+(c?c.color:'#b7b3a8')+'; overflow:hidden" title="'+(c?c.label:id)+' '+fmtTime(ps)+'〜'+fmtTime(pe)+'">'+
+        (lbl?'<span style="display:block; text-align:center; font-size:9px; line-height:17px; color:#fff; font-weight:700; white-space:nowrap; text-shadow:0 1px 2px rgba(0,0,0,.45); letter-spacing:-0.2px">'+lbl+'</span>':'')+'</div>';
+    });
   });
   return h;
 }
