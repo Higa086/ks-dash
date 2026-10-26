@@ -798,18 +798,18 @@ const CATS=[
  {id:'honpen',  label:'本編',            color:'#c05621'},
  {id:'name',    label:'ネーム・プロット',  color:'#e08a3f'},
  {id:'package', label:'サムネ・パッケージ', color:'#c9a227'},
- {id:'research',label:'リサーチ',         color:'#33608d'},
+ {id:'research',label:'リサーチ・学習・思考整理',         color:'#33608d'},
  {id:'promo',   label:'集客(X/pixiv)',    color:'#7c3aed'},
- {id:'study',   label:'学習・思考整理',    color:'#2f8f8f'},
  {id:'honbiz',  label:'KINO',             color:'#22a35a'},
- {id:'biz',     label:'管理・事務',       color:'#4a8fb5'},
- {id:'env',     label:'開発',            color:'#b8577a'},
+ {id:'biz',     label:'管理・事務・開発',   color:'#4a8fb5'},
 ];
 // 旧分類（打刻ボタンには出さないが、過去データの表示用に残す）
+// 統合済み分類の読み替え（2026-10-26〜: 開発→管理・事務・開発、学習・思考整理→リサーチ・学習・思考整理）
+const CAT_ALIAS={env:'biz', study:'research'};
 const CAT_OLD=[{id:'side', label:'副業(YT/note)', color:'#79a884'}];
 const CATS_ALL=CATS.concat(CAT_OLD);
 const CAT_UNK={id:'unk', label:'未分類', color:'#5a63a0'};
-function catLabel(id){ const c=CATS_ALL.concat([CAT_UNK]).find(x=>x.id===id); return c?c.label:id; }
+function catLabel(id){ id=CAT_ALIAS[id]||id; const c=CATS_ALL.concat([CAT_UNK]).find(x=>x.id===id); return c?c.label:id; }
 const MODES=[
  {id:'normal', label:'通常日'},
  {id:'off',    label:'休日'},
@@ -1129,7 +1129,7 @@ function catCalc(rec, k){
     if(t==='break'||t==='end'){ if(curStart!=null){ intervals.push([curStart,at]); curStart=null; } }
   });
   if(curStart!=null) intervals.push([curStart, now]);
-  const activeAt=(t)=>{ let id='unk'; for(const [cid,at] of catev){ if(at<=t) id=cid; else break; } return id; };
+  const activeAt=(t)=>{ let id='unk'; for(const [cid,at] of catev){ if(at<=t) id=(CAT_ALIAS[cid]||cid); else break; } return id; };
   intervals.forEach(([s,e])=>{
     const pts=[s].concat(catev.map(x=>x[1]).filter(t=>t>s&&t<e)).concat([e]);
     for(let i=0;i<pts.length-1;i++){
@@ -1137,7 +1137,7 @@ function catCalc(rec, k){
       res[id]=(res[id]||0)+(pts[i+1]-pts[i]);
     }
   });
-  if(rec.catAdj){ for(const id in rec.catAdj){ if(rec.catAdj[id]!=null) res[id]=rec.catAdj[id]*60000; } }
+  if(rec.catAdj){ const adj={}; for(const id in rec.catAdj){ if(rec.catAdj[id]!=null){ const a=CAT_ALIAS[id]||id; adj[a]=(adj[a]||0)+rec.catAdj[id]*60000; } } for(const a in adj) res[a]=adj[a]; }
   let total=0; for(const id in res) total+=res[id];
   return {perCat:res, total:total};
 }
@@ -1193,7 +1193,7 @@ function renderWork(d){
     chips.innerHTML='';
     if(wc.st==='working'){
       const catev=(d.cat&&d.cat.ev)||[];
-      const cur=catev.length?catev[catev.length-1][0]:'unk';
+      const cur=catev.length?(CAT_ALIAS[catev[catev.length-1][0]]||catev[catev.length-1][0]):'unk';
       CATS.concat([CAT_UNK]).forEach(c=>{
         const el=document.createElement('div'); el.className='chip mini'+(cur===c.id?' on':'');
         el.textContent=c.label; el.onclick=()=>catAdd(c.id);
@@ -1592,7 +1592,7 @@ function dayColor(dt,k){ if(JP_HOLIDAYS.has(k)||dt.getDay()===0) return '#cf5045
 function dayLbl(dt,withMonth){ const k=todayKey(dt); const c=dayColor(dt,k);
   const d=(withMonth?(dt.getMonth()+1)+'/':'')+dt.getDate();
   return '<span style="line-height:1.15; display:inline-block;'+(c?' color:'+c:'')+'">'+d+'<br>'+'日月火水木金土'[dt.getDay()]+'</span>'; }
-const CAT_SHORT={honpen:'本編',name:'ネーム',package:'サムネ',research:'リサーチ',promo:'集客',study:'学習',honbiz:'KINO',biz:'管理',side:'副業',env:'開発',unk:'未分類'};
+const CAT_SHORT={honpen:'本編',name:'ネーム',package:'サムネ',research:'リサーチ・学習',promo:'集客',study:'学習',honbiz:'KINO',biz:'管理・開発',side:'副業',env:'開発',unk:'未分類'};
 const MANGA_CATS=['honpen','name','package','research','promo'];
 function mangaMsOf(k){ const rec=DB.days[k]; if(!rec) return 0;
   const cc=catCalc(rec,k); let s=0;
@@ -1648,7 +1648,7 @@ function wlEditHtml(k,rec){
     '<div class="small" style="margin-bottom:2px">業務の区間: '+(wlSegs(k,rec).filter(x=>x[0]==='w').map(x=>fmtTime(x[1])+'〜'+fmtTime(x[2])).join('、')||'なし')+'</div>'+
     '<div id="wlCatRows">'+(()=>{ const ce=((rec&&rec.cat&&rec.cat.ev)||[]).slice().sort((a,b)=>a[1]-b[1]);
       const rows=ce.length? ce : wlSegs(k,rec).filter(x=>x[0]==='w').map(x=>['unk',x[1]]);
-      return rows.map(e=>wlCatRowHtml(e[0], wlHM(day0,e[1]))).join(''); })()+'</div>'+
+      return rows.map(e=>wlCatRowHtml(CAT_ALIAS[e[0]]||e[0], wlHM(day0,e[1]))).join(''); })()+'</div>'+
     '<div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:6px">'+
       '<button class="btn ghost" style="margin:0; padding:6px 12px" onclick="wlAddCat()">＋ 種別を追加</button>'+
       '<button class="btn" style="margin:0; padding:6px 14px" onclick="wlSaveCat()">種別を保存</button></div>'+
@@ -1689,7 +1689,7 @@ function wlSaveCat(){
 }
 function wlBarSegs(k,rec,day0,pct){
   const ce=((rec&&rec.cat&&rec.cat.ev)||[]).slice().sort((a,b)=>a[1]-b[1]);
-  const act=t=>{ let id='unk'; for(const [cid,at] of ce){ if(at<=t) id=cid; else break; } return id; };
+  const act=t=>{ let id='unk'; for(const [cid,at] of ce){ if(at<=t) id=(CAT_ALIAS[cid]||cid); else break; } return id; };
   const all=CATS_ALL.concat([CAT_UNK]);
   const X=t=>pct((t-day0)/3600000);
   let h='';
@@ -1721,7 +1721,7 @@ function wlBarSegs(k,rec,day0,pct){
 function wlCatStrip(k,rec,day0,pct){
   const ce=((rec&&rec.cat&&rec.cat.ev)||[]).slice().sort((a,b)=>a[1]-b[1]);
   if(!ce.length) return '';
-  const act=t=>{ let id='unk'; for(const [cid,at] of ce){ if(at<=t) id=cid; else break; } return id; };
+  const act=t=>{ let id='unk'; for(const [cid,at] of ce){ if(at<=t) id=(CAT_ALIAS[cid]||cid); else break; } return id; };
   const all=CATS_ALL.concat([CAT_UNK]);
   let h='';
   wlSegs(k,rec).forEach(([ty,s0,e0])=>{
@@ -2121,9 +2121,9 @@ function renderStats(){
         catRowsEl.appendChild(el);
       };
       mkRow('漫画（本編+ネーム+サムネ）', gMan, '#c05621');
-      mkRow('マーケ（リサーチ+集客）', gMkt, '#33608d');
+      mkRow('マーケ（リサーチ・学習+集客）', gMkt, '#33608d');
       mkRow('KINO（本業）', gKb, '#22a35a');
-      mkRow('他（管理・学習・開発ほか）', gOth, '#8a867c');
+      mkRow('他（管理・事務・開発ほか）', gOth, '#8a867c');
       const sm=document.createElement('div'); sm.className='small'; sm.style.marginTop='6px'; sm.style.textAlign='right';
       sm.innerHTML='漫画作業（漫画+マーケ）<b style="color:#c05621">'+(fmtH(gMan+gMkt)||'0')+'</b>'+(ctot?'（'+Math.round((gMan+gMkt)/ctot*100)+'%）':'')+
         '　／　合計 <b>100%</b>・<b style="font-size:14px">'+(fmtH(ctot)||'0')+'</b>';
