@@ -802,13 +802,13 @@ const CATS=[
  {id:'promo',   label:'集客(X/pixiv)',    color:'#7c3aed'},
  {id:'study',   label:'学習・思考整理',    color:'#2f8f8f'},
  {id:'honbiz',  label:'KINO',             color:'#22a35a'},
- {id:'biz',     label:'管理・事務',       color:'#0ea5e9'},
- {id:'env',     label:'開発',            color:'#e64980'},
+ {id:'biz',     label:'管理・事務',       color:'#4a8fb5'},
+ {id:'env',     label:'開発',            color:'#b8577a'},
 ];
 // 旧分類（打刻ボタンには出さないが、過去データの表示用に残す）
 const CAT_OLD=[{id:'side', label:'副業(YT/note)', color:'#79a884'}];
 const CATS_ALL=CATS.concat(CAT_OLD);
-const CAT_UNK={id:'unk', label:'未分類', color:'#364fc7'};
+const CAT_UNK={id:'unk', label:'未分類', color:'#5a63a0'};
 function catLabel(id){ const c=CATS_ALL.concat([CAT_UNK]).find(x=>x.id===id); return c?c.label:id; }
 const MODES=[
  {id:'normal', label:'通常日'},
