@@ -1696,7 +1696,7 @@ function wlBarSegs(k,rec,day0,pct){
   wlSegs(k,rec).forEach(([ty,s0,e0])=>{
     const x0=Math.max(0,X(s0)), x1=Math.min(100,X(e0)); if(x1<=x0) return;
     if(ty!=='w'){
-      h+='<div style="position:absolute; left:'+x0.toFixed(2)+'%; width:'+(x1-x0).toFixed(2)+'%; top:6px; bottom:6px; background:#b4b2a9" title="休憩 '+fmtTime(s0)+'〜'+fmtTime(e0)+'"></div>';
+      h+='<div style="position:absolute; left:'+x0.toFixed(2)+'%; width:'+(x1-x0).toFixed(2)+'%; top:0; bottom:0; background:#e0a52d" title="休憩 '+fmtTime(s0)+'〜'+fmtTime(e0)+'"></div>';
       return;
     }
     const pts=[s0].concat(ce.map(x=>x[1]).filter(t=>t>s0&&t<e0)).concat([e0]);
@@ -1981,7 +1981,7 @@ function renderStats(){
     }
     const axis='<div style="position:relative; height:15px; margin:0 '+R+'px 0 '+L+'px">'+ticks+'</div>';
     const axisTop='<div style="position:relative; height:15px; margin:0 '+R+'px 0 '+L+'px">'+ticks+'<span style="position:absolute; right:-'+(R-6)+'px; width:'+(R-6)+'px; font-size:9.5px; color:var(--sub); padding-left:9px; box-sizing:border-box">備考</span></div>';
-    let html='<div class="small" style="margin-bottom:4px">'+CATS.concat([CAT_UNK]).map(c=>'<span style="white-space:nowrap"><span style="display:inline-block; width:10px; height:10px; background:'+c.color+'; border-radius:2px; vertical-align:-1px"></span> '+CAT_SHORT[c.id]+'</span>').join('　')+'　<span style="white-space:nowrap"><span style="display:inline-block; width:16px; height:5px; background:#b4b2a9; vertical-align:2px"></span> 休憩</span><br><span style="color:var(--sub)">数字=時（24以降は深夜）・行をタップで詳細・打刻／種別の修正</span></div>';
+    let html='<div class="small" style="margin-bottom:4px">'+CATS.concat([CAT_UNK]).map(c=>'<span style="white-space:nowrap"><span style="display:inline-block; width:10px; height:10px; background:'+c.color+'; border-radius:2px; vertical-align:-1px"></span> '+CAT_SHORT[c.id]+'</span>').join('　')+'　<span style="white-space:nowrap"><span style="display:inline-block; width:10px; height:10px; background:#e0a52d; border-radius:2px; vertical-align:-1px"></span> 休憩</span><br><span style="color:var(--sub)">数字=時（24以降は深夜）・行をタップで詳細・打刻／種別の修正</span></div>';
     html+=axisTop;
     html+='<div style="position:relative">';
     html+='<div style="position:absolute; top:0; bottom:0; left:'+L+'px; right:'+R+'px; pointer-events:none">'+glines+'</div>';
