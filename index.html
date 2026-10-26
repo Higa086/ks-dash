@@ -348,7 +348,7 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <div class="small" style="margin-top:6px">再開回数 = 漫画をやらなかった日から復帰した回数（宣言した休みはノーカン）</div>
   </div>
   <div class="card">
-    <h2>ページ数 <span class="small">棒=本編+リテイク／<span style="color:#e08a3f">橙数字=ネーム(別集計)</span></span></h2>
+    <h2>ページ数 <span class="small">棒=本編+リテイク／<span style="color:#e08a3f">橙=ネーム</span>／<span style="color:#7c3aed">紫=広告イラスト(枚)</span></span></h2>
     <div class="calhead" style="margin-bottom:4px">
       <button class="navbtn" onclick="pgMove(-1)">‹</button>
       <b id="pgRangeLbl" style="font-size:13px">—</b>
@@ -801,7 +801,7 @@ const CATS=[
  {id:'research',label:'リサーチ',         color:'#33608d'},
  {id:'promo',   label:'集客(X/pixiv)',    color:'#7c3aed'},
  {id:'study',   label:'学習・思考整理',    color:'#2f8f8f'},
- {id:'honbiz',  label:'KINOBIM',          color:'#22a35a'},
+ {id:'honbiz',  label:'KINO',             color:'#22a35a'},
  {id:'biz',     label:'管理・事務',       color:'#a0785a'},
  {id:'env',     label:'開発',            color:'#8a867c'},
 ];
@@ -1023,12 +1023,12 @@ function updatePageTotals(){
   const s=new Date(weekKey()); let wk=0;
   for(let i=0;i<7;i++){ const dt=new Date(s); dt.setDate(s.getDate()+i);
     const r=DB.days[todayKey(dt)]; if(r) wk+=pgVal(r); }
-  let tot=0, totN=0, totS=0, totB=0;
-  Object.keys(DB.days).forEach(k=>{ const r=DB.days[k]; tot+=pgVal(r); totN+=r.pgN||0; totS+=r.pgS||0; totB+=r.pgB||0; });
+  let tot=0, totN=0, totS=0, totB=0, totA=0;
+  Object.keys(DB.days).forEach(k=>{ const r=DB.days[k]; tot+=pgVal(r); totN+=r.pgN||0; totS+=r.pgS||0; totB+=r.pgB||0; totA+=r.pgA||0; });
   const goal=20;
   el.innerHTML='今週 <b style="color:var(--ink)">'+fmtP(wk)+'P</b> / '+goal+'P　・　累計 <b style="color:var(--ink)">'+fmtP(tot)+'P</b>'+
     ((totB||totN||totS)?('<br>'+(totB?('正味 '+fmtP(tot-totB)+'P（ボツ'+fmtP(totB)+'P差引）'+((totN||totS)?'　':'')):'')+
-      ((totN||totS)?('別集計: ネーム'+fmtP(totN)+'P・写植'+fmtP(totS)+'P'):'')):'');
+      ((totN||totS)?('別集計: ネーム'+fmtP(totN)+'P・写植'+fmtP(totS)+'P'+(totA?'・広告イラスト'+fmtP(totA)+'枚':'')):'')):'');
 }
 const DOC_URL='https://docs.google.com/document/d/1aLwN1eh6C0o0pdEmzbV20QBMEeOdb2OOcbgKJjsG-MQ/edit';
 const SHEET_URL='https://docs.google.com/spreadsheets/d/1qwXVjYZ-M5CuQ1tOx6o6O9eG_T7bIVskx7cud5iy-AI/edit';
@@ -1069,7 +1069,7 @@ function chgPages(n){ const d=day(); d.pages=Math.max(0,Math.round(((d.pages||0)
 // 累計ページ = 本編 + リテイク（実際に作った量。ボツは引かない）／正味 = 累計 − ボツ
 function pgVal(rec){ return ((rec&&rec.pages)||0)+((rec&&rec.pgR)||0); }
 function pgNet(rec){ return pgVal(rec)-((rec&&rec.pgB)||0); }
-const PG_FIELDS=[['pgN','ネーム'],['pgR','リテイク'],['pgS','写植'],['pgB','ボツ']];
+const PG_FIELDS=[['pgN','ネーム'],['pgR','リテイク'],['pgS','写植'],['pgB','ボツ'],['pgA','広告イラスト']];
 function pgSubHtml(rec, fnName){
   return PG_FIELDS.map(f=>'<div style="display:flex; align-items:center; gap:5px; font-size:12px">'+
     '<span style="color:var(--sub)">'+f[1]+'</span>'+
@@ -1592,11 +1592,12 @@ function dayColor(dt,k){ if(JP_HOLIDAYS.has(k)||dt.getDay()===0) return '#cf5045
 function dayLbl(dt,withMonth){ const k=todayKey(dt); const c=dayColor(dt,k);
   const d=(withMonth?(dt.getMonth()+1)+'/':'')+dt.getDate();
   return '<span style="line-height:1.15; display:inline-block;'+(c?' color:'+c:'')+'">'+d+'<br>'+'日月火水木金土'[dt.getDay()]+'</span>'; }
-const CAT_SHORT={honpen:'本編',name:'ネーム',package:'サムネ',research:'リサーチ',promo:'集客',study:'学習',honbiz:'KINOBIM',biz:'管理',side:'副業',env:'開発',unk:'未分類'};
+const CAT_SHORT={honpen:'本編',name:'ネーム',package:'サムネ',research:'リサーチ',promo:'集客',study:'学習',honbiz:'KINO',biz:'管理',side:'副業',env:'開発',unk:'未分類'};
 const MANGA_CATS=['honpen','name','package','research','promo'];
 function mangaMsOf(k){ const rec=DB.days[k]; if(!rec) return 0;
   const cc=catCalc(rec,k); let s=0;
   MANGA_CATS.forEach(id=>{ s+=cc.perCat[id]||0; }); return s; }
+function kinoMsOf(k){ const rec=DB.days[k]; if(!rec) return 0; return catCalc(rec,k).perCat.honbiz||0; }
 function catMove(n){ if((window._catView||'day')==='all') return; keepScroll(()=>{ window._catOff=Math.max(0,(window._catOff||0)-n); window._catPick=null; renderStats(); }); }
 function wlMove(n){ keepScroll(()=>{ window._wlOff=Math.max(0,(window._wlOff||0)-n); renderStats(); }); }
 function pgMove(n){ keepScroll(()=>{ window._pgOff=Math.max(0,(window._pgOff||0)-n); renderStats(); }); }
@@ -1819,7 +1820,7 @@ function renderStats(){
       for(let i=20;i>=0;i--){
         const d2=new Date(endD); d2.setDate(endD.getDate()-i);
         const rec2=DB.days[todayKey(d2)];
-        items.push({label:dayLbl(d2, i===20||d2.getDate()===1), v:pgVal(rec2), n:(rec2&&rec2.pgN)||0, t:(d2.getMonth()+1)+'/'+d2.getDate()});
+        items.push({label:dayLbl(d2, i===20||d2.getDate()===1), v:pgVal(rec2), n:(rec2&&rec2.pgN)||0, a:(rec2&&rec2.pgA)||0, t:(d2.getMonth()+1)+'/'+d2.getDate()});
       }
       const sD=new Date(endD); sD.setDate(endD.getDate()-20);
       pgRange=fmtMD(sD)+'〜'+fmtMD(endD);
@@ -1831,30 +1832,31 @@ function renderStats(){
       }
       items=mlist.map(m=>({label:parseInt(m.slice(5))+'月',
         v:keys.filter(k=>k.slice(0,7)===m).reduce((s,k)=>s+pgVal(DB.days[k]),0),
-        n:keys.filter(k=>k.slice(0,7)===m).reduce((s,k)=>s+((DB.days[k].pgN)||0),0)}));
+        n:keys.filter(k=>k.slice(0,7)===m).reduce((s,k)=>s+((DB.days[k].pgN)||0),0),
+        a:keys.filter(k=>k.slice(0,7)===m).reduce((s,k)=>s+((DB.days[k].pgA)||0),0)}));
       pgRange=parseInt(mlist[0].slice(0,4))+'/'+parseInt(mlist[0].slice(5))+'〜'+parseInt(mlist[5].slice(0,4))+'/'+parseInt(mlist[5].slice(5));
     } else {
       const curWk=new Date(weekKey()); curWk.setDate(curWk.getDate()-56*poff);
       for(let i=7;i>=0;i--){
         const ws=new Date(curWk); ws.setDate(curWk.getDate()-7*i);
-        let sum=0, ns=0;
-        for(let j=0;j<7;j++){ const dt2=new Date(ws); dt2.setDate(ws.getDate()+j); const rec2=DB.days[todayKey(dt2)]; sum+=pgVal(rec2); ns+=(rec2&&rec2.pgN)||0; }
-        items.push({label:(ws.getMonth()+1)+'/'+ws.getDate(), v:sum, n:ns});
+        let sum=0, ns=0, ads=0;
+        for(let j=0;j<7;j++){ const dt2=new Date(ws); dt2.setDate(ws.getDate()+j); const rec2=DB.days[todayKey(dt2)]; sum+=pgVal(rec2); ns+=(rec2&&rec2.pgN)||0; ads+=(rec2&&rec2.pgA)||0; }
+        items.push({label:(ws.getMonth()+1)+'/'+ws.getDate(), v:sum, n:ns, a:ads});
       }
       const s0=new Date(curWk); s0.setDate(curWk.getDate()-49);
       const e0=new Date(curWk); e0.setDate(curWk.getDate()+6);
       pgRange=fmtMD(s0)+'〜'+fmtMD(e0);
     }
     { const rl2=document.getElementById('pgRangeLbl'); if(rl2) rl2.textContent=pgRange; }
-    { const tv=items.reduce((s,x)=>s+x.v,0), tn=items.reduce((s,x)=>s+(x.n||0),0);
+    { const tv=items.reduce((s,x)=>s+x.v,0), tn=items.reduce((s,x)=>s+(x.n||0),0), ta=items.reduce((s,x)=>s+(x.a||0),0);
       const nt=document.getElementById('mChartNote');
-      if(nt) nt.innerHTML='この期間: 本編 <b>'+fmtP(tv)+'P</b> ／ ネーム <b style="color:#e08a3f">'+fmtP(tn)+'P</b>（累計とは別集計）'; }
+      if(nt) nt.innerHTML='この期間: 本編 <b>'+fmtP(tv)+'P</b> ／ ネーム <b style="color:#e08a3f">'+fmtP(tn)+'P</b> ／ 広告イラスト <b style="color:#7c3aed">'+fmtP(ta)+'枚</b>（ネーム・広告は累計と別集計）'; }
     const mx=Math.max(1,...items.map(x=>x.v));
     mc.style.gap=items.length>12?'2px':'6px';
-    addYAxis(mc, mx, v=>((v%1)?v.toFixed(1):v)+'P', 91, 24);
+    addYAxis(mc, mx, v=>((v%1)?v.toFixed(1):v)+'P', 91, 34);
     items.forEach(it=>{
       const el=document.createElement('div'); el.className='mb';
-      el.innerHTML='<div class="mv" style="height:24px; line-height:1.2; overflow:visible;'+(items.length>10?' font-size:8.5px; letter-spacing:-0.3px;':' font-size:9.5px;')+'">'+(it.v?fmtP(it.v):'')+'<br><span style="color:#e08a3f">'+(it.n?fmtP(it.n):'')+'</span></div>'+
+      el.innerHTML='<div class="mv" style="height:34px; line-height:1.15; overflow:visible;'+(items.length>10?' font-size:8.5px; letter-spacing:-0.3px;':' font-size:9.5px;')+'">'+(it.v?fmtP(it.v):'')+'<br><span style="color:#e08a3f">'+(it.n?fmtP(it.n):'')+'</span><br><span style="color:#7c3aed">'+(it.a?fmtP(it.a):'')+'</span></div>'+
         '<div class="bararea"><div style="height:'+Math.round(Math.max(0,it.v)/mx*100)+'%" title="'+(it.t||'')+' 本編'+fmtP(Math.max(0,it.v))+'P / ネーム'+fmtP(it.n||0)+'P"></div></div>'+
         '<div class="ml ml2" style="font-size:8.5px">'+it.label+'</div>';
       mc.appendChild(el);
@@ -1880,14 +1882,14 @@ function renderStats(){
     if(wmode==='day'){
       const endD=new Date(); endD.setDate(endD.getDate()-21*woff);
       for(let i=20;i>=0;i--){ const dt=new Date(endD); dt.setDate(endD.getDate()-i); const kk=todayKey(dt);
-        witems.push({lbl:dayLbl(dt, i===20||dt.getDate()===1), ms:dayMsOf(kk), mg:mangaMsOf(kk), small:true}); }
+        witems.push({lbl:dayLbl(dt, i===20||dt.getDate()===1), ms:dayMsOf(kk), mg:mangaMsOf(kk), kn:kinoMsOf(kk), small:true}); }
       const sD=new Date(endD); sD.setDate(endD.getDate()-20);
       wtRange=fmtMD(sD)+'〜'+fmtMD(endD);
     } else if(wmode==='week'){
       const curWk=new Date(weekKey()); curWk.setDate(curWk.getDate()-56*woff);
       for(let i=7;i>=0;i--){ const ws=new Date(curWk); ws.setDate(curWk.getDate()-7*i);
-        let sum=0, mg=0; for(let j=0;j<7;j++){ const dt=new Date(ws); dt.setDate(ws.getDate()+j); const kk=todayKey(dt); sum+=dayMsOf(kk); mg+=mangaMsOf(kk); }
-        witems.push({lbl:(ws.getMonth()+1)+'/'+ws.getDate(), ms:sum, mg:mg}); }
+        let sum=0, mg=0, kn=0; for(let j=0;j<7;j++){ const dt=new Date(ws); dt.setDate(ws.getDate()+j); const kk=todayKey(dt); sum+=dayMsOf(kk); mg+=mangaMsOf(kk); kn+=kinoMsOf(kk); }
+        witems.push({lbl:(ws.getMonth()+1)+'/'+ws.getDate(), ms:sum, mg:mg, kn:kn}); }
       const s0=new Date(curWk); s0.setDate(curWk.getDate()-49);
       const e0=new Date(curWk); e0.setDate(curWk.getDate()+6);
       wtRange=fmtMD(s0)+'〜'+fmtMD(e0);
@@ -1899,13 +1901,14 @@ function renderStats(){
       }
       witems=mlist.map(m=>({lbl:parseInt(m.slice(5))+'月',
         ms:keys.filter(k=>k.slice(0,7)===m).reduce((s,k)=>s+dayMsOf(k),0),
-        mg:keys.filter(k=>k.slice(0,7)===m).reduce((s,k)=>s+mangaMsOf(k),0)}));
+        mg:keys.filter(k=>k.slice(0,7)===m).reduce((s,k)=>s+mangaMsOf(k),0),
+        kn:keys.filter(k=>k.slice(0,7)===m).reduce((s,k)=>s+kinoMsOf(k),0)}));
       wtRange=parseInt(mlist[0].slice(0,4))+'/'+parseInt(mlist[0].slice(5))+'〜'+parseInt(mlist[5].slice(0,4))+'/'+parseInt(mlist[5].slice(5));
     }
     { const rl3=document.getElementById('wtRangeLbl'); if(rl3) rl3.textContent=wtRange; }
     { const tw=witems.reduce((s,x)=>s+x.ms,0), tm=witems.reduce((s,x)=>s+(x.mg||0),0);
       const nt=document.getElementById('wChartNote');
-      if(nt) nt.innerHTML='この期間: 実働 <b>'+(fmtH(tw)||'0')+'</b> ／ うち漫画作業 <b style="color:#c05621">'+(fmtH(tm)||'0')+'</b>'+(tw?'（'+Math.round(tm/tw*100)+'%）':'')+'　<span class="small">※漫画作業＝本編+ネーム+サムネ+リサーチ+集客</span>'; }
+      if(nt) nt.innerHTML='この期間: 実働 <b>'+(fmtH(tw)||'0')+'</b> ／ うち漫画作業 <b style="color:#c05621">'+(fmtH(tm)||'0')+'</b>'+(tw?'（'+Math.round(tm/tw*100)+'%）':'')+' ／ KINO <b style="color:#22a35a">'+(fmtH(witems.reduce((s,x)=>s+(x.kn||0),0))||'0')+'</b>'+'　<span class="small">※漫画作業＝本編+ネーム+サムネ+リサーチ+集客／緑＝KINO</span>'; }
     wc1.style.gap=witems.length>12?'2px':'6px';
     const mxw=Math.max(3600000,...witems.map(x=>x.ms));
     addYAxis(wc1, mxw, v=>(fmtH(v)||'0'), 91, 24);
@@ -1916,11 +1919,13 @@ function renderStats(){
       const mgl= (x.mg||0)>=60000 ? (x.small? f1(mgv) : (fmtH(x.mg)||'')) : '';
       const el=document.createElement('div'); el.className='mb';
       const hAll=Math.round(x.ms/mxw*100), hMg=Math.round((x.mg||0)/mxw*100);
-      const hOther=Math.max(0,hAll-hMg);
+      const hKn=Math.round((x.kn||0)/mxw*100);
+      const hOther=Math.max(0,hAll-hMg-hKn);
       el.innerHTML='<div class="mv" style="height:24px; line-height:1.2; overflow:visible;'+(x.small?' font-size:8.5px; letter-spacing:-0.3px;':' font-size:9.5px;')+'">'+lblV+'<br><span style="color:#c05621">'+mgl+'</span></div>'+
         '<div class="bararea" style="gap:0">'+
           '<div style="height:'+hOther+'%; background:#d9c9b4; border-radius:'+(hOther>0?'4px 4px 0 0':'0')+(hOther===0?'; min-height:0':'')+'"></div>'+
-          '<div style="height:'+hMg+'%; background:#c05621; border-radius:'+(hOther>0?'0':'4px 4px 0 0')+(hMg===0?'; min-height:0':'')+'"></div>'+
+          '<div style="height:'+hKn+'%; background:#22a35a; border-radius:'+(hOther>0?'0':'4px 4px 0 0')+(hKn===0?'; min-height:0':'')+'"></div>'+
+          '<div style="height:'+hMg+'%; background:#c05621; border-radius:'+((hOther>0||hKn>0)?'0':'4px 4px 0 0')+(hMg===0?'; min-height:0':'')+'"></div>'+
         '</div>'+
         '<div class="ml ml2" style="font-size:8.5px">'+x.lbl+'</div>';
       el.title=(fmtH(x.ms)||'0')+'（漫画 '+(fmtH(x.mg||0)||'0')+'）';
@@ -2086,7 +2091,7 @@ function renderStats(){
       };
       mkRow('漫画（本編+ネーム+サムネ）', gMan, '#c05621');
       mkRow('マーケ（リサーチ+集客）', gMkt, '#33608d');
-      mkRow('KINOBIM（本業）', gKb, '#22a35a');
+      mkRow('KINO（本業）', gKb, '#22a35a');
       mkRow('他（管理・学習・開発ほか）', gOth, '#8a867c');
       const sm=document.createElement('div'); sm.className='small'; sm.style.marginTop='6px'; sm.style.textAlign='right';
       sm.innerHTML='漫画作業（漫画+マーケ）<b style="color:#c05621">'+(fmtH(gMan+gMkt)||'0')+'</b>'+(ctot?'（'+Math.round((gMan+gMkt)/ctot*100)+'%）':'')+
