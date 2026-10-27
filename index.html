@@ -1888,10 +1888,15 @@ function renderStats(){
     addYAxis(mc, mx, v=>((v%1)?v.toFixed(1):v)+'P', 91, 34);
     items.forEach(it=>{
       const el=document.createElement('div'); el.className='mb';
-      el.innerHTML='<div class="mv" style="height:34px; line-height:1.15; overflow:visible;'+(items.length>10?' font-size:8.5px; letter-spacing:-0.3px;':' font-size:9.5px;')+'">'+(it.v?fmtP(it.v):'')+'<br><span style="color:#e08a3f">'+(it.n?fmtP(it.n):'')+'</span><br><span style="color:#7c3aed">'+(it.a?fmtP(it.a):'')+'</span></div>'+
-        '<div class="bararea" style="flex-direction:row; align-items:flex-end; gap:1px" title="'+(it.t||'')+' 本編'+fmtP(Math.max(0,it.v))+'P / ネーム'+fmtP(it.n||0)+'P / 広告'+fmtP(it.a||0)+'枚">'+
-          '<div style="width:'+(anyAd?'50%':'100%')+'; height:'+Math.round(Math.max(0,it.v)/mx*100)+'%'+(it.v>0?'':'; min-height:0')+'"></div>'+
-          (anyAd?'<div style="width:50%; height:'+Math.round((it.a||0)/mx*100)+'%; background:#7c3aed'+(it.a>0?'':'; min-height:0')+'"></div>':'')+
+      const fs=(items.length>10?'font-size:8.5px; letter-spacing:-0.3px;':'font-size:9.5px;');
+      const bar=(val,h,bg,lbl,w)=>'<div style="position:relative; z-index:1; width:'+w+'; height:'+h+'%'+(bg?'; background:'+bg:'')+(val>0?'':'; min-height:0')+'">'+
+        (lbl?'<span style="position:absolute; bottom:100%; left:50%; transform:translateX(-50%); padding-bottom:1px; white-space:nowrap; text-align:center; line-height:1.15; font-weight:700; '+fs+'">'+lbl+'</span>':'')+'</div>';
+      const lblV=(it.v?fmtP(it.v):'')+(it.n?(it.v?'<br>':'')+'<span style="color:#e08a3f">'+fmtP(it.n)+'</span>':'');
+      const lblA=it.a?'<span style="color:#7c3aed">'+fmtP(it.a)+'</span>':'';
+      el.innerHTML='<div class="mv" style="height:34px"></div>'+
+        '<div class="bararea" style="flex-direction:row; align-items:flex-end; justify-content:center; gap:1px; overflow:visible" title="'+(it.t||'')+' 本編'+fmtP(Math.max(0,it.v))+'P / ネーム'+fmtP(it.n||0)+'P / 広告'+fmtP(it.a||0)+'枚">'+
+          bar(it.v, Math.round(Math.max(0,it.v)/mx*100), '', lblV, anyAd?'50%':'100%')+
+          (anyAd? bar(it.a||0, Math.round((it.a||0)/mx*100), '#7c3aed', lblA, '50%') : '')+
         '</div>'+
         '<div class="ml ml2" style="font-size:8.5px">'+it.label+'</div>';
       mc.appendChild(el);
