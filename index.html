@@ -1895,8 +1895,8 @@ function renderStats(){
       const lblA=it.a?'<span style="color:#7c3aed">'+fmtP(it.a)+'</span>':'';
       el.innerHTML='<div class="mv" style="height:34px"></div>'+
         '<div class="bararea" style="flex-direction:row; align-items:flex-end; justify-content:center; gap:1px; overflow:visible" title="'+(it.t||'')+' 本編'+fmtP(Math.max(0,it.v))+'P / ネーム'+fmtP(it.n||0)+'P / 広告'+fmtP(it.a||0)+'枚">'+
-          bar(it.v, Math.round(Math.max(0,it.v)/mx*100), '', lblV, anyAd?'50%':'100%')+
-          (anyAd? bar(it.a||0, Math.round((it.a||0)/mx*100), '#7c3aed', lblA, '50%') : '')+
+          ((!anyAd || it.v>0 || it.n || !(it.a>0)) ? bar(it.v, Math.round(Math.max(0,it.v)/mx*100), '', lblV, anyAd?'50%':'100%') : '')+
+          ((anyAd && it.a>0) ? bar(it.a, Math.round(it.a/mx*100), '#7c3aed', lblA, '50%') : '')+
         '</div>'+
         '<div class="ml ml2" style="font-size:8.5px">'+it.label+'</div>';
       mc.appendChild(el);
