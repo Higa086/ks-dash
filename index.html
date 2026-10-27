@@ -348,7 +348,7 @@ details.arch{margin-top:8px;} details.arch summary{cursor:pointer; font-weight:6
     <div class="small" style="margin-top:6px">再開回数 = 漫画をやらなかった日から復帰した回数（宣言した休みはノーカン）</div>
   </div>
   <div class="card">
-    <h2>ページ数 <span class="small">棒=本編+リテイク／<span style="color:#e08a3f">橙=ネーム</span>／<span style="color:#7c3aed">紫=広告イラスト(枚)</span></span></h2>
+    <h2>ページ数 <span class="small">青棒=本編+リテイク／<span style="color:#e08a3f">橙=ネーム</span>／<span style="color:#7c3aed">紫棒=広告イラスト(枚)</span></span></h2>
     <div class="calhead" style="margin-bottom:4px">
       <button class="navbtn" onclick="pgMove(-1)">‹</button>
       <b id="pgRangeLbl" style="font-size:13px">—</b>
@@ -1882,13 +1882,17 @@ function renderStats(){
     { const tv=items.reduce((s,x)=>s+x.v,0), tn=items.reduce((s,x)=>s+(x.n||0),0), ta=items.reduce((s,x)=>s+(x.a||0),0);
       const nt=document.getElementById('mChartNote');
       if(nt) nt.innerHTML='この期間: 本編 <b>'+fmtP(tv)+'P</b> ／ ネーム <b style="color:#e08a3f">'+fmtP(tn)+'P</b> ／ 広告イラスト <b style="color:#7c3aed">'+fmtP(ta)+'枚</b>（ネーム・広告は累計と別集計）'; }
-    const mx=Math.max(1,...items.map(x=>x.v));
+    const mx=Math.max(1,...items.map(x=>Math.max(x.v,x.a||0)));
+    const anyAd=items.some(x=>x.a);
     mc.style.gap=items.length>12?'2px':'6px';
     addYAxis(mc, mx, v=>((v%1)?v.toFixed(1):v)+'P', 91, 34);
     items.forEach(it=>{
       const el=document.createElement('div'); el.className='mb';
       el.innerHTML='<div class="mv" style="height:34px; line-height:1.15; overflow:visible;'+(items.length>10?' font-size:8.5px; letter-spacing:-0.3px;':' font-size:9.5px;')+'">'+(it.v?fmtP(it.v):'')+'<br><span style="color:#e08a3f">'+(it.n?fmtP(it.n):'')+'</span><br><span style="color:#7c3aed">'+(it.a?fmtP(it.a):'')+'</span></div>'+
-        '<div class="bararea"><div style="height:'+Math.round(Math.max(0,it.v)/mx*100)+'%" title="'+(it.t||'')+' 本編'+fmtP(Math.max(0,it.v))+'P / ネーム'+fmtP(it.n||0)+'P"></div></div>'+
+        '<div class="bararea" style="flex-direction:row; align-items:flex-end; gap:1px" title="'+(it.t||'')+' 本編'+fmtP(Math.max(0,it.v))+'P / ネーム'+fmtP(it.n||0)+'P / 広告'+fmtP(it.a||0)+'枚">'+
+          '<div style="width:'+(anyAd?'50%':'100%')+'; height:'+Math.round(Math.max(0,it.v)/mx*100)+'%'+(it.v>0?'':'; min-height:0')+'"></div>'+
+          (anyAd?'<div style="width:50%; height:'+Math.round((it.a||0)/mx*100)+'%; background:#7c3aed'+(it.a>0?'':'; min-height:0')+'"></div>':'')+
+        '</div>'+
         '<div class="ml ml2" style="font-size:8.5px">'+it.label+'</div>';
       mc.appendChild(el);
     });
